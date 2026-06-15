@@ -4,6 +4,8 @@ const TARGET_DATE = "2026-10-01";
 const STORAGE_KEY = "ryan-cut-tracker-v1";
 const AUTH_USERS_KEY = "forged-auth-users-v1";
 const AUTH_SESSION_KEY = "forged-auth-session-v1";
+const SUPABASE_STATE_TABLE = "forged_user_state";
+const SUPABASE_PROFILE_TABLE = "forged_profiles";
 
 const DEFAULT_SETTINGS = {
   userName: "",
@@ -41,6 +43,8 @@ const habits = [
 
 const els = {};
 let state = { entries: {} };
+let supabaseClient = null;
+let cloudSyncTimer = null;
 
 const workoutPlan = [
   {
@@ -257,6 +261,99 @@ function saveAuthUsers(users) {
   localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
 }
 
+function supabaseConfig() {
+  return window.FORGED_SUPABASE || {};
+}
+
+function isSupabaseConfigured() {
+  const config = supabaseConfig();
+  return Boolean(config.url && config.anonKey && window.supabase?.createClient);
+}
+
+function getSupabaseClient() {
+  if (!isSupabaseConfigured()) return null;
+  if (!supabaseClient) {
+    const config = supabaseConfig();
+    supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
+  }
+  return supabaseClient;
+}
+
+function cloudEnabledForCurrentUser() {
+  return Boolean(getSupabaseClient() && state.currentUserId && state.currentUserId !== defaultUserId);
+}
+
+async function loadCloudState(userId) {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return null;
+  const { data, error } = await supabase
+    .from(SUPABASE_STATE_TABLE)
+    .select("state")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(`Cloud load failed: ${error.message}`);
+  return data?.state ? validateImportedState(data.state) : null;
+}
+
+async function syncStateToCloud(message = "Saved to cloud") {
+  const supabase = getSupabaseClient();
+  if (!cloudEnabledForCurrentUser()) return;
+  const userId = currentUserId();
+  const { error } = await supabase
+    .from(SUPABASE_STATE_TABLE)
+    .upsert({ user_id: userId, state, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  if (error) {
+    showSaveStatus(`Local save ok; cloud sync failed: ${error.message}`, "status-warn");
+    return;
+  }
+  showSaveStatus(message, "status-good");
+}
+
+function queueCloudSync(message = "Saved to cloud") {
+  if (!cloudEnabledForCurrentUser()) return;
+  window.clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = window.setTimeout(() => {
+    syncStateToCloud(message).catch((error) => showSaveStatus(`Local save ok; cloud sync failed: ${error.message}`, "status-warn"));
+  }, 300);
+}
+
+async function saveCloudProfile(user) {
+  const supabase = getSupabaseClient();
+  if (!supabase || !user?.id) return;
+  await supabase.from(SUPABASE_PROFILE_TABLE).upsert({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    start_weight: user.startWeight,
+    goal_weight: user.goalWeight,
+    goal_date: user.goalDate,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "id" });
+}
+
+async function activeCloudSession() {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.user) return null;
+  const user = data.session.user;
+  const profile = user.user_metadata || {};
+  const cloudState = await loadCloudState(user.id);
+  if (cloudState) state = cloudState;
+  return {
+    id: user.id,
+    name: profile.name || user.email?.split("@")[0] || "FORGED User",
+    email: user.email,
+    startWeight: profile.startWeight || START_WEIGHT,
+    currentWeight: profile.currentWeight || profile.startWeight || START_WEIGHT,
+    goalWeight: profile.goalWeight || GOAL_WEIGHT,
+    goalDate: profile.goalDate || TARGET_DATE,
+    createdAt: user.created_at ? user.created_at.slice(0, 10) : todayKey(),
+  };
+}
+
 function simplePasswordHash(password, salt) {
   return btoa(unescape(encodeURIComponent(`${salt}:${password}`)));
 }
@@ -274,10 +371,15 @@ function setAuthMode(mode) {
   els.loginForm.hidden = !loginMode;
   els.showSignup.classList.toggle("is-active", !loginMode);
   els.showLogin.classList.toggle("is-active", loginMode);
-  authStatus(loginMode ? "Log in with the email and password used on this device." : "Beta note: this saves in this browser only. Use real server auth before a public multi-device launch.");
+  const cloudReady = isSupabaseConfigured();
+  authStatus(loginMode
+    ? `Log in with your FORGED email and password${cloudReady ? " from any device" : " used on this device"}.`
+    : cloudReady
+      ? "Cloud sync is ready. Your FORGED data will be available from any device after signup."
+      : "Beta note: Supabase is not configured yet, so this browser uses a local fallback.");
 }
 
-function createAuthUser(formData) {
+async function createAuthUser(formData) {
   const email = normalizeEmail(formData.email);
   const name = String(formData.name || "").trim();
   const password = String(formData.password || "");
@@ -285,12 +387,36 @@ function createAuthUser(formData) {
   if (!email || !email.includes("@")) throw new Error("Enter a valid email address.");
   if (password.length < 6) throw new Error("Use at least 6 characters for the password.");
 
-  const users = loadAuthUsers();
-  if (users.some((user) => user.email === email)) throw new Error("That email already has an account on this device. Log in instead.");
-
   const startWeight = safeNumber(formData.startWeight, START_WEIGHT);
   const goalWeight = safeNumber(formData.goalWeight, GOAL_WEIGHT);
   const goalDate = validDateKey(formData.goalDate) ? formData.goalDate : TARGET_DATE;
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const metadata = { name, startWeight, currentWeight: startWeight, goalWeight, goalDate };
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: metadata },
+    });
+    if (error) throw new Error(error.message);
+    if (!data.user) throw new Error("Supabase did not return a user after signup.");
+    const user = {
+      id: data.user.id,
+      name,
+      email,
+      startWeight,
+      currentWeight: startWeight,
+      goalWeight,
+      goalDate,
+      createdAt: todayKey(),
+    };
+    await saveCloudProfile(user);
+    return user;
+  }
+
+  const users = loadAuthUsers();
+  if (users.some((user) => user.email === email)) throw new Error("That email already has an account on this device. Log in instead.");
   const salt = uid("salt");
   const user = {
     id: uid("user"),
@@ -309,9 +435,29 @@ function createAuthUser(formData) {
   return user;
 }
 
-function signInAuthUser(emailValue, passwordValue) {
+async function signInAuthUser(emailValue, passwordValue) {
   const email = normalizeEmail(emailValue);
   const password = String(passwordValue || "");
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    const user = data.user;
+    const profile = user.user_metadata || {};
+    const cloudState = await loadCloudState(user.id);
+    if (cloudState) state = cloudState;
+    return {
+      id: user.id,
+      name: profile.name || user.email?.split("@")[0] || "FORGED User",
+      email: user.email,
+      startWeight: profile.startWeight || START_WEIGHT,
+      currentWeight: profile.currentWeight || profile.startWeight || START_WEIGHT,
+      goalWeight: profile.goalWeight || GOAL_WEIGHT,
+      goalDate: profile.goalDate || TARGET_DATE,
+      createdAt: user.created_at ? user.created_at.slice(0, 10) : todayKey(),
+    };
+  }
+
   const user = loadAuthUsers().find((item) => item.email === email);
   if (!user || user.passwordHash !== simplePasswordHash(password, user.salt)) {
     throw new Error("Email or password did not match an account saved on this device.");
@@ -343,7 +489,7 @@ function applyAuthenticatedUser(user, { save = true } = {}) {
   state.goals[user.id] = state.settings;
   sessionStorage.setItem(AUTH_SESSION_KEY, user.id);
   ensurePlatformState();
-  if (save) saveState("Account saved locally");
+  if (save) saveState(cloudEnabledForCurrentUser() ? "Account saved to cloud" : "Account saved locally");
 }
 
 function activeSessionUser() {
@@ -466,10 +612,12 @@ function showSaveStatus(message = "Saved locally", tone = "") {
 
 function saveState(message = "Saved locally") {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  showSaveStatus(message, "status-good");
+  const cloudReady = cloudEnabledForCurrentUser();
+  showSaveStatus(cloudReady ? "Saving to cloud..." : message, cloudReady ? "status-warn" : "status-good");
+  if (cloudReady) queueCloudSync(message.includes("cloud") ? message : "Saved to cloud");
   window.clearTimeout(saveState._timer);
   saveState._timer = window.setTimeout(() => {
-    showSaveStatus("Auto-saved locally on this device", "");
+    showSaveStatus(cloudReady ? "Auto-saved to cloud" : "Auto-saved locally on this device", "");
   }, 1200);
 }
 
@@ -2225,8 +2373,11 @@ function cacheElements() {
   });
 }
 
-function bindAuthGate() {
-  const sessionUser = activeSessionUser();
+async function bindAuthGate() {
+  const sessionUser = await activeCloudSession().catch((error) => {
+    authStatus(error.message, "status-warn");
+    return null;
+  }) || activeSessionUser();
   if (sessionUser) {
     applyAuthenticatedUser(sessionUser, { save: false });
     els.authGate.hidden = true;
@@ -2240,10 +2391,11 @@ function bindAuthGate() {
   els.showSignup.addEventListener("click", () => setAuthMode("signup"));
   els.showLogin.addEventListener("click", () => setAuthMode("login"));
 
-  els.signupForm.addEventListener("submit", (event) => {
+  els.signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const user = createAuthUser({
+      authStatus("Creating your FORGED account...", "status-warn");
+      const user = await createAuthUser({
         name: els.signupName.value,
         email: els.signupEmail.value,
         password: els.signupPassword.value,
@@ -2254,16 +2406,17 @@ function bindAuthGate() {
       applyAuthenticatedUser(user);
       els.authGate.hidden = true;
       loadForm();
-      authStatus(`Welcome, ${user.name}. Your FORGED account is saved on this device.`, "status-good");
+      authStatus(cloudEnabledForCurrentUser() ? `Welcome, ${user.name}. Your FORGED account will sync across devices.` : `Welcome, ${user.name}. Your FORGED account is saved on this device.`, "status-good");
     } catch (error) {
       authStatus(error.message, "status-bad");
     }
   });
 
-  els.loginForm.addEventListener("submit", (event) => {
+  els.loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const user = signInAuthUser(els.loginEmail.value, els.loginPassword.value);
+      authStatus("Signing in and loading cloud data...", "status-warn");
+      const user = await signInAuthUser(els.loginEmail.value, els.loginPassword.value);
       applyAuthenticatedUser(user);
       els.authGate.hidden = true;
       loadForm();
@@ -2851,11 +3004,14 @@ function arrangeSections() {
   });
 }
 
-function init() {
+async function init() {
   cacheElements();
   arrangeSections();
   loadState();
-  const sessionUser = activeSessionUser();
+  const sessionUser = await activeCloudSession().catch((error) => {
+    console.warn(error.message);
+    return null;
+  }) || activeSessionUser();
   if (sessionUser) applyAuthenticatedUser(sessionUser, { save: false });
   renderHabits();
   renderMealPlan();

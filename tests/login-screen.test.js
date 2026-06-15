@@ -17,8 +17,8 @@ assert(html.includes('id="signup-goal-weight"'), 'signup should collect goal wei
 assert(html.includes('id="signup-goal-date"'), 'signup should collect goal date');
 assert(js.includes('const AUTH_USERS_KEY'), 'auth users storage key should exist');
 assert(js.includes('function saveAuthUsers'), 'auth users should be saved locally');
-assert(js.includes('function createAuthUser'), 'signup should create saved users');
-assert(js.includes('function signInAuthUser'), 'login should restore saved users');
+assert(js.includes('function createAuthUser') || js.includes('async function createAuthUser'), 'signup should create saved users');
+assert(js.includes('function signInAuthUser') || js.includes('async function signInAuthUser'), 'login should restore saved users');
 assert(js.includes('function applyAuthenticatedUser'), 'auth should apply profile to app state');
 assert(js.includes('localStorage.setItem(AUTH_USERS_KEY'), 'auth users should persist to localStorage');
 assert(js.includes('sessionStorage.setItem(AUTH_SESSION_KEY'), 'signed-in user should persist for the session');

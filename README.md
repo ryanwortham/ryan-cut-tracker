@@ -6,7 +6,27 @@ Private local MVP for Ryan's 265 lb to 220 lb cut by October 2026.
 
 Open `index.html` in a browser, or serve the folder with any static server.
 
-All data is saved in the browser with `localStorage` under `ryan-cut-tracker-v1`.
+All data is saved locally under `ryan-cut-tracker-v1` as a fallback. When Supabase is configured, FORGED uses Supabase Auth plus the `forged_user_state` table so the same account data can load from any device.
+
+## Supabase setup
+
+1. Create a Supabase project.
+2. In Supabase Auth settings, add the live site URL as an allowed redirect/site URL: `http://forged.ryanwortham.com` and later `https://forged.ryanwortham.com` after GitHub Pages SSL is ready.
+3. Run `supabase-schema.sql` in the Supabase SQL editor. It creates:
+   - `forged_profiles`
+   - `forged_user_state`
+   - Row Level Security policies so each user can only read/write their own profile/state.
+4. Copy the project's public URL and anon key into `supabase-config.js`:
+
+```js
+window.FORGED_SUPABASE = {
+  url: "https://YOUR-PROJECT.supabase.co",
+  anonKey: "YOUR_PUBLIC_ANON_KEY",
+};
+```
+
+5. For the beta, either disable email confirmation in Supabase Auth or be ready for users to confirm email before their first login.
+6. Deploy `index.html`, `styles.css`, `app.js`, `supabase-config.js`, and `supabase-schema.sql`/docs as needed.
 
 ## Scope
 
