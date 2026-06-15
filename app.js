@@ -8,6 +8,19 @@ const SUPABASE_STATE_TABLE = "forged_user_state";
 const SUPABASE_PROFILE_TABLE = "forged_profiles";
 const USDA_SEARCH_ENDPOINT = "https://api.nal.usda.gov/fdc/v1/foods/search";
 const USDA_API_KEY = window.FORGED_NUTRITION?.usdaApiKey || "DEMO_KEY";
+const FATSECRET_PROXY_ENDPOINT = window.FORGED_NUTRITION?.fatSecretProxyUrl
+  || (window.FORGED_SUPABASE?.url ? `${window.FORGED_SUPABASE.url}/functions/v1/fatsecret-search` : "");
+const commonFoodMacros = [
+  { keywords: ["chicken breast", "grilled chicken", "rotisserie chicken"], name: "Chicken breast, cooked", calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0, servingGrams: 170 },
+  { keywords: ["egg", "eggs", "whole egg"], name: "Egg, whole", calories: 143, protein: 12.6, carbs: 0.7, fat: 9.5, fiber: 0, servingGrams: 50 },
+  { keywords: ["egg white", "egg whites"], name: "Egg whites", calories: 52, protein: 10.9, carbs: 0.7, fat: 0.2, fiber: 0, servingGrams: 33 },
+  { keywords: ["rice", "white rice", "cooked rice"], name: "White rice, cooked", calories: 130, protein: 2.7, carbs: 28.2, fat: 0.3, fiber: 0.4, servingGrams: 158 },
+  { keywords: ["greek yogurt", "nonfat greek yogurt"], name: "Greek yogurt, plain nonfat", calories: 59, protein: 10.3, carbs: 3.6, fat: 0.4, fiber: 0, servingGrams: 245 },
+  { keywords: ["oatmeal", "oats"], name: "Oats, dry", calories: 389, protein: 16.9, carbs: 66.3, fat: 6.9, fiber: 10.6, servingGrams: 40 },
+  { keywords: ["ground turkey", "turkey"], name: "Ground turkey, cooked", calories: 203, protein: 27.4, carbs: 0, fat: 10.4, fiber: 0, servingGrams: 170 },
+  { keywords: ["salmon"], name: "Salmon, cooked", calories: 208, protein: 20.4, carbs: 0, fat: 13.4, fiber: 0, servingGrams: 170 },
+  { keywords: ["potato", "potatoes"], name: "Potato, baked", calories: 93, protein: 2.5, carbs: 21.2, fat: 0.1, fiber: 2.2, servingGrams: 173 },
+];
 
 
 const DEFAULT_SETTINGS = {
@@ -673,6 +686,17 @@ function foodNumber(food, key) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function roundMacro(value, digits = 1) {
+  const num = Number(value) || 0;
+  const rounded = Number(num.toFixed(digits));
+  return Number.isInteger(rounded) ? rounded : rounded;
+}
+
+function formatMacro(value) {
+  const num = roundMacro(value);
+  return Number.isInteger(num) ? String(num) : num.toFixed(1);
+}
+
 function sumFoods(foods = []) {
   return foods.reduce((totals, food) => {
     totals.calories += foodNumber(food, "calories");
@@ -729,36 +753,219 @@ function addFoodToMeal(mealIndex, food) {
   entry.proteinGrams = totals.protein || "";
   if (totals.protein >= selectedProteinGoal()) entry.protein = true;
   state.lastFood = meals[cleanMealIndex][meals[cleanMealIndex].length - 1];
-  saveState(food.source === "USDA" ? "USDA food added" : "Food added");
+  saveState(food.source ? `${food.source} food added` : "Food added");
   loadForm();
 }
 
 function nutrientValue(food, nutrientNames) {
   const nutrients = food?.foodNutrients || [];
   const wanted = nutrientNames.map((name) => name.toLowerCase());
-  const nutrient = nutrients.find((item) => wanted.includes(String(item.nutrientName || item.name || "").toLowerCase()));
+  const nutrient = nutrients.find((item) => {
+    const name = String(item.nutrientName || item.name || "").toLowerCase();
+    const unit = String(item.unitName || "").toLowerCase();
+    if (name === "energy" && unit === "kj") return false;
+    return wanted.includes(name);
+  });
   const value = Number(nutrient?.value ?? nutrient?.amount);
   return Number.isFinite(value) ? value : 0;
 }
 
-function normalizeUsdaFood(food) {
+function parseFoodQuery(rawQuery) {
+  const original = String(rawQuery || "").trim();
+  const withUnit = original.match(/^((?:\d+\s+\d+\/\d+)|(?:\d+\/\d+)|(?:\d+(?:\.\d+)?))\s*(oz|ounce|ounces|g|gram|grams|lb|lbs|pound|pounds|serving|servings)\b\s*(.*)$/i);
+  const withCount = original.match(/^((?:\d+\s+\d+\/\d+)|(?:\d+\/\d+)|(?:\d+(?:\.\d+)?))\s+(.+)$/i);
+  const match = withUnit || withCount;
+  if (!match) return { query: original, amount: "", unit: "oz" };
+  const amountText = match[1];
+  const unitText = withUnit ? match[2] : "serving";
+  const rest = withUnit ? match[3] : match[2];
+  const amount = amountText.includes(" ")
+    ? amountText.split(/\s+/).reduce((sum, part) => sum + parseFraction(part), 0)
+    : parseFraction(amountText);
+  return {
+    query: String(rest || original).trim() || original,
+    amount: Number.isFinite(amount) && amount > 0 ? String(roundMacro(amount, 2)) : "",
+    unit: normalizeServingUnit(unitText),
+  };
+}
+
+function parseFraction(value) {
+  const text = String(value || "").trim();
+  if (text.includes("/")) {
+    const [top, bottom] = text.split("/").map(Number);
+    return bottom ? top / bottom : 0;
+  }
+  return Number(text);
+}
+
+function normalizeServingUnit(unit) {
+  const clean = String(unit || "oz").toLowerCase();
+  if (["g", "gram", "grams"].includes(clean)) return "g";
+  if (["lb", "lbs", "pound", "pounds"].includes(clean)) return "lb";
+  if (["serving", "servings"].includes(clean)) return "serving";
+  return "oz";
+}
+
+function servingGrams(amount, unit) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return 100;
+  if (unit === "g") return value;
+  if (unit === "lb") return value * 453.59237;
+  if (unit === "oz") return value * 28.349523125;
+  return 100 * value;
+}
+
+function servingLabel(amount, unit, grams) {
+  const cleanAmount = Number(amount);
+  if (Number.isFinite(cleanAmount) && cleanAmount > 0) return `${formatMacro(cleanAmount)} ${unit}${unit === "serving" && cleanAmount !== 1 ? "s" : ""}`;
+  return `${Math.round(grams)}g`;
+}
+
+function dataTypeRank(type) {
+  return { Estimate: -1, "Survey (FNDDS)": 0, "SR Legacy": 1, Foundation: 2, Branded: 3 }[type] ?? 4;
+}
+
+function foodSearchScore(food, cleanQuery) {
+  const text = `${food.description || ""} ${food.brandOwner || ""} ${food.brandName || ""}`.toLowerCase();
+  const query = cleanQuery.toLowerCase();
+  const words = query.split(/\s+/).filter((word) => word.length > 2);
+  let score = dataTypeRank(food.dataType) * 100;
+  words.forEach((word) => { if (!text.includes(word)) score += 12; });
+  if (text.includes(query)) score -= 20;
+  if (/breaded|nugget|fritter|patty|sauce|flavored/.test(text) && !/breaded|nugget|fritter|patty|sauce|flavored/.test(query)) score += 40;
+  if (/raw|uncooked/.test(text) && !/raw|uncooked/.test(query)) score += 15;
+  if (/grilled|roasted|rotisserie|cooked/.test(text) && /chicken|beef|turkey|fish/.test(query)) score -= 10;
+  return score;
+}
+
+
+function localFoodMatches(query, servingContext = {}) {
+  const cleanQuery = String(query || "").toLowerCase();
+  const amount = servingContext.amount || "100";
+  const unit = normalizeServingUnit(servingContext.unit || "g");
+  return commonFoodMacros
+    .filter((food) => food.keywords.some((keyword) => cleanQuery.includes(keyword) || keyword.includes(cleanQuery)))
+    .slice(0, 2)
+    .map((food, index) => {
+      const grams = unit === "serving" && food.servingGrams ? Number(amount || 1) * food.servingGrams : servingGrams(amount, unit);
+      const multiplier = grams / 100;
+      return {
+      name: `${food.name} (common estimate)`,
+      serving: `${servingLabel(amount, unit, grams)} (${Math.round(grams)}g)`,
+      calories: roundMacro(food.calories * multiplier),
+      protein: roundMacro(food.protein * multiplier),
+      carbs: roundMacro(food.carbs * multiplier),
+      fat: roundMacro(food.fat * multiplier),
+      fiber: roundMacro(food.fiber * multiplier),
+      source: "estimate",
+      sourceId: food.keywords[0],
+      dataType: "Estimate",
+      score: -100 + index,
+      };
+    });
+}
+
+function parseMacroFromText(text, labels) {
+  const clean = String(text || "");
+  for (const label of labels) {
+    const pattern = new RegExp(`${label}\\s*:?\\s*([0-9]+(?:\\.[0-9]+)?)`, "i");
+    const match = clean.match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return 0;
+}
+
+function pickFatSecretServing(food) {
+  const servings = food?.servings?.serving || food?.serving || food?.servings || [];
+  const list = Array.isArray(servings) ? servings : [servings].filter(Boolean);
+  return list.find((serving) => String(serving.metric_serving_unit || "").toLowerCase() === "g") || list[0] || null;
+}
+
+function normalizeFatSecretFood(food, servingContext = {}) {
+  if (!food || typeof food !== "object") return null;
+  const serving = pickFatSecretServing(food);
+  const rawName = food.name || food.food_name || food.foodName || "FatSecret food";
+  const brand = food.brand || food.brand_name || food.brandName || "";
+  const description = food.description || food.food_description || "";
+  const amount = Number(servingContext.amount) || 0;
+  const unit = normalizeServingUnit(servingContext.unit || "g");
+  const grams = unit === "serving" && serving?.metric_serving_amount
+    ? Number(amount || 1) * Number(serving.metric_serving_amount)
+    : servingGrams(amount || 100, amount ? unit : "g");
+
+  const servingMetricAmount = Number(serving?.metric_serving_amount || serving?.metricServingAmount || 0);
+  const servingCalories = Number(serving?.calories || food.calories || parseMacroFromText(description, ["Calories"]));
+  const servingProtein = Number(serving?.protein || food.protein || food.protein_g || parseMacroFromText(description, ["Protein"]));
+  const servingCarbs = Number(serving?.carbohydrate || serving?.carbs || food.carbs || food.carbs_g || parseMacroFromText(description, ["Carbs", "Carbohydrate"]));
+  const servingFat = Number(serving?.fat || food.fat || food.fat_g || parseMacroFromText(description, ["Fat"]));
+  const servingFiber = Number(serving?.fiber || food.fiber || food.fiber_g || parseMacroFromText(description, ["Fiber"]));
+  const baseGrams = servingMetricAmount || (String(description).toLowerCase().includes("per 100g") ? 100 : grams || 100);
+  const multiplier = grams / baseGrams;
+  const baseServingLabel = serving?.serving_description || serving?.servingDescription || (baseGrams ? `${Math.round(baseGrams)}g FatSecret reference` : "FatSecret serving");
+
+  return {
+    name: brand ? `${rawName} (${brand})` : rawName,
+    serving: `${servingLabel(amount || 100, amount ? unit : "g", grams)} (${Math.round(grams)}g) from ${baseServingLabel}`,
+    calories: roundMacro((Number.isFinite(servingCalories) ? servingCalories : 0) * multiplier),
+    protein: roundMacro((Number.isFinite(servingProtein) ? servingProtein : 0) * multiplier),
+    carbs: roundMacro((Number.isFinite(servingCarbs) ? servingCarbs : 0) * multiplier),
+    fat: roundMacro((Number.isFinite(servingFat) ? servingFat : 0) * multiplier),
+    fiber: roundMacro((Number.isFinite(servingFiber) ? servingFiber : 0) * multiplier),
+    source: "FatSecret",
+    sourceId: String(food.food_id || food.id || ""),
+    dataType: "FatSecret",
+    score: -50 + (food.food_type === "Generic" ? -10 : 0),
+  };
+}
+
+function normalizeFatSecretPayload(payload, servingContext = {}) {
+  const directFoods = payload?.foods || payload?.results || payload?.items || payload?.data;
+  const nestedFoods = payload?.foods?.food || payload?.food;
+  const list = Array.isArray(nestedFoods) ? nestedFoods
+    : Array.isArray(directFoods) ? directFoods
+      : nestedFoods ? [nestedFoods]
+        : [];
+  return list
+    .map((food) => normalizeFatSecretFood(food, servingContext))
+    .filter((food) => food && (food.calories || food.protein || food.carbs || food.fat));
+}
+
+async function searchFatSecretFoods(query, amount, unit) {
+  if (!FATSECRET_PROXY_ENDPOINT) return [];
+  const response = await fetch(FATSECRET_PROXY_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, amount, unit }),
+  });
+  if (!response.ok) throw new Error(`FatSecret search failed (${response.status})`);
+  const payload = await response.json();
+  return normalizeFatSecretPayload(payload, { amount, unit, query }).slice(0, 8);
+}
+
+function normalizeUsdaFood(food, servingContext = {}) {
   const description = String(food.description || food.lowercaseDescription || "USDA food").trim();
   const brand = String(food.brandOwner || food.brandName || "").trim();
-  const servingSize = Number(food.servingSize);
-  const servingUnit = String(food.servingSizeUnit || "g").trim();
+  const amount = Number(servingContext.amount) || 0;
+  const unit = normalizeServingUnit(servingContext.unit);
+  const grams = servingGrams(amount || 100, amount ? unit : "g");
+  const multiplier = grams / 100;
+  const baseServingSize = Number(food.servingSize);
+  const baseServingUnit = String(food.servingSizeUnit || "g").trim();
   const householdServing = String(food.householdServingFullText || "").trim();
-  const serving = householdServing || (servingSize ? `${servingSize}${servingUnit}` : "100g reference");
+  const baseServing = householdServing || (baseServingSize ? `${baseServingSize}${baseServingUnit}` : "100g USDA reference");
+  const displayServing = `${servingLabel(amount, unit, grams)} (${Math.round(grams)}g) from ${baseServing}`;
   return {
     name: brand ? `${description} (${brand})` : description,
-    serving,
-    calories: nutrientValue(food, ["Energy"]),
-    protein: nutrientValue(food, ["Protein"]),
-    carbs: nutrientValue(food, ["Carbohydrate, by difference", "Carbohydrate, by summation"]),
-    fat: nutrientValue(food, ["Total lipid (fat)", "Total Fat"]),
-    fiber: nutrientValue(food, ["Fiber, total dietary", "Fiber"]),
+    serving: displayServing,
+    calories: roundMacro(nutrientValue(food, ["Energy"]) * multiplier),
+    protein: roundMacro(nutrientValue(food, ["Protein"]) * multiplier),
+    carbs: roundMacro(nutrientValue(food, ["Carbohydrate, by difference", "Carbohydrate, by summation"]) * multiplier),
+    fat: roundMacro(nutrientValue(food, ["Total lipid (fat)", "Total Fat"]) * multiplier),
+    fiber: roundMacro(nutrientValue(food, ["Fiber, total dietary", "Fiber"]) * multiplier),
     source: "USDA",
     sourceId: String(food.fdcId || ""),
     dataType: food.dataType || "",
+    score: foodSearchScore(food, servingContext.query || ""),
   };
 }
 
@@ -771,36 +978,71 @@ function renderFoodSearchResults(results = []) {
   els.foodSearchResults.innerHTML = results.map((food, index) => `
     <button type="button" data-usda-result="${index}">
       <strong>${escapeHtml(food.name)}</strong>
-      <span>${escapeHtml(food.serving)} · ${Math.round(food.calories).toLocaleString()} cal · P ${Math.round(food.protein)}g · C ${Math.round(food.carbs)}g · F ${Math.round(food.fat)}g${food.fiber ? ` · Fiber ${Math.round(food.fiber)}g` : ""}</span>
+      <span>${escapeHtml(food.serving)} · ${formatMacro(food.calories)} cal · P ${formatMacro(food.protein)}g · C ${formatMacro(food.carbs)}g · F ${formatMacro(food.fat)}g${food.fiber ? ` · Fiber ${formatMacro(food.fiber)}g` : ""}</span>
       <small>${escapeHtml(food.dataType || "USDA")} ${food.sourceId ? `#${escapeHtml(food.sourceId)}` : ""}</small>
     </button>
   `).join("");
 }
 
 async function searchUsdaFoods() {
-  const query = String(els.foodSearchQuery?.value || "").trim();
+  const rawQuery = String(els.foodSearchQuery?.value || "").trim();
+  const parsed = parseFoodQuery(rawQuery);
+  if (parsed.amount) {
+    els.foodServingAmount.value = parsed.amount;
+    els.foodServingUnit.value = parsed.unit;
+  }
+  const query = parsed.query;
   if (!query) {
-    showFoodSearchStatus("Type a food first, like chicken breast, egg, rice, or Greek yogurt.", "status-warn");
+    showFoodSearchStatus("Type a food first, like 6 oz chicken breast, 2 eggs, rice, or Greek yogurt.", "status-warn");
     return;
   }
-  showFoodSearchStatus("Searching USDA FoodData Central...", "status-warn");
+  const amount = els.foodServingAmount.value || parsed.amount || "100";
+  const unit = normalizeServingUnit(els.foodServingUnit.value || parsed.unit || "g");
+  const servingText = servingLabel(amount, unit, servingGrams(amount, unit));
+  showFoodSearchStatus("Searching FatSecret nutrition database...", "status-warn");
+
+  const localResults = localFoodMatches(query, { amount, unit });
   try {
-    const params = new URLSearchParams({
-      api_key: USDA_API_KEY,
-      query,
-      pageSize: "8",
-      sortBy: "dataType.keyword",
-      sortOrder: "asc",
-    });
-    const response = await fetch(`${USDA_SEARCH_ENDPOINT}?${params.toString()}`);
-    if (!response.ok) throw new Error(`USDA search failed (${response.status})`);
+    const fatSecretResults = await searchFatSecretFoods(query, amount, unit);
+    if (fatSecretResults.length) {
+      const results = [...fatSecretResults, ...localResults]
+        .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
+        .slice(0, 8);
+      state.usdaSearchResults = results;
+      renderFoodSearchResults(results);
+      showFoodSearchStatus(`Found ${results.length} FatSecret options for ${servingText}. Tap one to add it to the selected meal.`, "status-good");
+      return;
+    }
+  } catch (error) {
+    console.warn("FatSecret lookup unavailable", error);
+  }
+
+  if (localResults.length) {
+    state.usdaSearchResults = localResults;
+    renderFoodSearchResults(localResults);
+    showFoodSearchStatus("FatSecret is not configured or unavailable, so showing common estimates. Manual entry is still available below.", "status-warn");
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({ api_key: USDA_API_KEY, query, pageSize: "18" });
+    ["Survey (FNDDS)", "SR Legacy", "Foundation", "Branded"].forEach((type) => params.append("dataType", type));
+    let response = await fetch(`${USDA_SEARCH_ENDPOINT}?${params.toString()}`);
+    if (!response.ok && response.status === 400) {
+      const fallbackParams = new URLSearchParams({ api_key: USDA_API_KEY, query, pageSize: "18" });
+      response = await fetch(`${USDA_SEARCH_ENDPOINT}?${fallbackParams.toString()}`);
+    }
+    if (!response.ok) throw new Error(`USDA fallback failed (${response.status})`);
     const data = await response.json();
     const results = (data.foods || [])
-      .map(normalizeUsdaFood)
-      .filter((food) => food.calories || food.protein || food.carbs || food.fat);
+      .filter((food) => (food.foodNutrients || []).length)
+      .sort((a, b) => foodSearchScore(a, query) - foodSearchScore(b, query))
+      .map((food) => normalizeUsdaFood(food, { amount, unit, query }))
+      .filter((food) => food.calories || food.protein || food.carbs || food.fat)
+      .slice(0, 8);
     state.usdaSearchResults = results;
     renderFoodSearchResults(results);
-    showFoodSearchStatus(results.length ? `Found ${results.length} USDA foods. Tap one to add it to the selected meal.` : "No USDA macro results found. Use manual entry below.", results.length ? "status-good" : "status-warn");
+    showFoodSearchStatus(results.length ? `FatSecret was unavailable, so found ${results.length} USDA fallback options for ${servingText}.` : "No macro results found. Use manual entry below.", results.length ? "status-warn" : "status-bad");
   } catch (error) {
     state.usdaSearchResults = [];
     renderFoodSearchResults([]);
@@ -2327,6 +2569,8 @@ function cacheElements() {
     "food-search-form",
     "food-search-query",
     "food-search-meal",
+    "food-serving-amount",
+    "food-serving-unit",
     "food-search-button",
     "food-search-status",
     "food-search-results",

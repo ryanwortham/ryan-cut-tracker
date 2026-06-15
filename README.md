@@ -26,7 +26,15 @@ window.FORGED_SUPABASE = {
 ```
 
 5. For the beta, either disable email confirmation in Supabase Auth or be ready for users to confirm email before their first login.
-6. Deploy `index.html`, `styles.css`, `app.js`, `supabase-config.js`, and `supabase-schema.sql`/docs as needed.
+6. FatSecret nutrition lookup runs through a Supabase Edge Function so the API secret is not exposed in the browser:
+
+```sh
+supabase secrets set FATSECRET_CLIENT_ID=your_client_id FATSECRET_CLIENT_SECRET=your_client_secret
+supabase functions deploy fatsecret-search
+```
+
+The app calls `${window.FORGED_SUPABASE.url}/functions/v1/fatsecret-search` by default and falls back to common estimates / USDA / manual entry when the function is unavailable.
+7. Deploy `index.html`, `styles.css`, `app.js`, `supabase-config.js`, `supabase-schema.sql`, `supabase/functions/fatsecret-search`, and docs as needed.
 
 ## Scope
 
