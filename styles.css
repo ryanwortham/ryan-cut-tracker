@@ -2361,3 +2361,61 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+.recipe-generator-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(61, 220, 132, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(61, 220, 132, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.recipe-suggestions {
+  display: grid;
+  gap: 10px;
+}
+
+.recipe-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recipe-result strong,
+.recipe-result span,
+.recipe-result small {
+  display: block;
+}
+
+.recipe-result span,
+.recipe-result small,
+.recipe-result p {
+  color: var(--muted);
+}
+
+.recipe-result p {
+  margin: 6px 0;
+}
+
+.recipe-result button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  color: #06100b;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  .recipe-result {
+    grid-template-columns: 1fr;
+  }
+}

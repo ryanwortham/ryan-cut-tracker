@@ -567,7 +567,7 @@
         <section class="food-search-card">
           <div class="section-title">
             <div>
-              <p class="label">FatSecret lookup</p>
+              <p class="label">Database lookup</p>
               <h2>Search Food Database</h2>
             </div>
             <span>Manual entry stays below</span>
@@ -601,7 +601,7 @@
                 <option value="5">Meal 6</option>
               </select>
             </label>
-            <button id="food-search-button" class="complete-button" type="submit">Search FatSecret</button>
+            <button id="food-search-button" class="complete-button" type="submit">Search Database</button>
           </form>
           <div class="barcode-row">
             <label class="field-card">
@@ -610,8 +610,8 @@
             </label>
             <button id="barcode-search-button" class="text-button" type="button">Lookup Barcode</button>
           </div>
-          <p id="food-search-status" class="support-copy">Search FatSecret for macros, scan packaged foods by barcode, repeat recents, or save a custom food. Type amounts naturally, like “6 oz chicken breast.”</p>
-          <div id="food-search-results" class="food-search-results"><p class="support-copy">No FatSecret results yet.</p></div>
+          <p id="food-search-status" class="support-copy">Search Database for macros, scan packaged foods by barcode, repeat recents, or save a custom food. Type amounts naturally, like “6 oz chicken breast.”</p>
+          <div id="food-search-results" class="food-search-results"><p class="support-copy">No database results yet.</p></div>
           <details class="custom-food-panel">
             <summary>Create Custom Food</summary>
             <div class="builder-form custom-food-form">
@@ -626,6 +626,22 @@
               <button id="save-custom-food" class="complete-button span-2" type="button">Save + Log Custom Food</button>
             </div>
           </details>
+        </section>
+
+        <section class="recipe-generator-card">
+          <div class="section-title">
+            <div>
+              <p class="label">On-hand ingredients</p>
+              <h2>Healthy Recipe Ideas</h2>
+            </div>
+            <span>Uses what you already have</span>
+          </div>
+          <label class="field-card">
+            <span>Ingredients you have</span>
+            <textarea id="recipe-ingredients" rows="3" placeholder="chicken, rice, broccoli, eggs, Greek yogurt"></textarea>
+          </label>
+          <button id="generate-recipes" class="complete-button" type="button">Generate Healthy Recipes</button>
+          <div id="recipe-suggestions" class="recipe-suggestions"><p class="support-copy">Enter ingredients to get high-protein recipe ideas you can log to a meal.</p></div>
         </section>
 
         <section class="recent-foods-card">

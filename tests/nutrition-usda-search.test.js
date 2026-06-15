@@ -14,8 +14,9 @@ assert(html.includes('id="food-serving-amount"'), 'nutrition search should let u
 assert(html.includes('id="food-serving-unit"'), 'nutrition search should let users set serving unit');
 assert(html.includes('id="food-search-results"'), 'nutrition results container should be present');
 assert(html.includes('Manual entry stays below'), 'manual macro fallback should remain visible');
-assert(/FatSecret lookup/i.test(html), 'FatSecret should be the primary lookup label');
-assert(html.includes('Search FatSecret'), 'FatSecret should be the primary search button label');
+assert(/Database lookup/i.test(html), 'Database should be the user-facing lookup label');
+assert(html.includes('Search Database'), 'Database should be the user-facing search button label');
+assert(!html.includes('Search FatSecret'), 'UI should not expose FatSecret in the primary search label');
 
 assert(js.includes('FATSECRET_PROXY_ENDPOINT'), 'FatSecret proxy endpoint should be configured from frontend config');
 assert(js.includes('function normalizeFatSecretFood'), 'FatSecret responses should be normalized into app food shape');

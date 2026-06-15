@@ -22,6 +22,63 @@ const commonFoodMacros = [
   { keywords: ["potato", "potatoes"], name: "Potato, baked", calories: 93, protein: 2.5, carbs: 21.2, fat: 0.1, fiber: 2.2, servingGrams: 173 },
 ];
 
+const healthyRecipeTemplates = [
+  {
+    name: "Chicken Rice Power Bowl",
+    needs: ["chicken", "rice"],
+    nice: ["broccoli", "spinach", "peppers", "salsa", "avocado"],
+    serving: "1 bowl",
+    calories: 520, protein: 52, carbs: 55, fat: 9, fiber: 6,
+    prep: "Grill or reheat chicken, add cooked rice, pile on vegetables, season with salsa or hot sauce.",
+    why: "High protein, controlled carbs, easy meal-prep cut meal.",
+  },
+  {
+    name: "Egg White Oat Protein Plate",
+    needs: ["egg", "oats"],
+    nice: ["berries", "banana", "greek yogurt"],
+    serving: "1 breakfast",
+    calories: 430, protein: 38, carbs: 46, fat: 8, fiber: 7,
+    prep: "Scramble eggs or egg whites and pair with oats. Add berries or cinnamon for volume without blowing calories.",
+    why: "Fast breakfast with protein and slow carbs.",
+  },
+  {
+    name: "Turkey Potato Skillet",
+    needs: ["turkey", "potato"],
+    nice: ["onion", "pepper", "spinach", "zucchini"],
+    serving: "1 skillet bowl",
+    calories: 500, protein: 45, carbs: 42, fat: 16, fiber: 7,
+    prep: "Brown lean turkey, add diced cooked potato and vegetables, season aggressively, finish with a low-calorie sauce.",
+    why: "Filling, high-protein comfort food without guessing macros.",
+  },
+  {
+    name: "Salmon Sweet Potato Plate",
+    needs: ["salmon", "potato"],
+    nice: ["asparagus", "broccoli", "salad", "green beans"],
+    serving: "1 plate",
+    calories: 560, protein: 42, carbs: 38, fat: 24, fiber: 8,
+    prep: "Bake salmon and potato, add a big green side, use lemon, garlic, and herbs instead of heavy sauce.",
+    why: "Good fats, protein, and a clean carb source.",
+  },
+  {
+    name: "Greek Yogurt Protein Bowl",
+    needs: ["greek yogurt"],
+    nice: ["berries", "banana", "oats", "protein powder"],
+    serving: "1 bowl",
+    calories: 350, protein: 42, carbs: 34, fat: 4, fiber: 5,
+    prep: "Mix Greek yogurt with protein powder if available, top with fruit and a small measured oats serving.",
+    why: "High protein snack or breakfast with very little prep.",
+  },
+  {
+    name: "Lean Beef Rice Bowl",
+    needs: ["beef", "rice"],
+    nice: ["lettuce", "salsa", "peppers", "onion"],
+    serving: "1 bowl",
+    calories: 590, protein: 46, carbs: 52, fat: 20, fiber: 6,
+    prep: "Use lean beef, measured rice, and high-volume vegetables. Keep cheese/sour cream light or skip them.",
+    why: "Tastes like a takeout bowl while keeping macros visible.",
+  },
+];
+
 
 const DEFAULT_SETTINGS = {
   userName: "",
@@ -613,6 +670,7 @@ function loadState() {
   state.favoriteFoods ||= defaultFavoriteFoods;
   state.recentFoods ||= [];
   state.customFoods ||= [];
+  state.recipeSuggestions ||= [];
   state.measurements ||= {};
   state.progressPictures ||= {};
   state.progressRange ||= 7;
@@ -748,6 +806,8 @@ function normalizedFood(food) {
     source: food.source || "manual",
     sourceId: food.sourceId || "",
     dataType: food.dataType || food.source || "manual",
+    prep: food.prep || "",
+    why: food.why || "",
   };
 }
 
@@ -935,7 +995,7 @@ function normalizeFatSecretFood(food, servingContext = {}) {
     fiber: roundMacro((Number.isFinite(servingFiber) ? servingFiber : 0) * multiplier),
     source: "FatSecret",
     sourceId: String(food.food_id || food.id || ""),
-    dataType: "FatSecret",
+    dataType: "Database",
     score: -50 + (food.food_type === "Generic" ? -10 : 0),
   };
 }
@@ -959,7 +1019,7 @@ async function searchFatSecretFoods(query, amount, unit) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, amount, unit }),
   });
-  if (!response.ok) throw new Error(`FatSecret search failed (${response.status})`);
+  if (!response.ok) throw new Error(`Database search failed (${response.status})`);
   const payload = await response.json();
   return normalizeFatSecretPayload(payload, { amount, unit, query }).slice(0, 8);
 }
@@ -1026,6 +1086,91 @@ function saveCustomFoodFromForm() {
   showFoodSearchStatus("Custom food saved, favorited, and logged.", "status-good");
 }
 
+function ingredientTokens(raw) {
+  return String(raw || "")
+    .toLowerCase()
+    .split(/[,\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function ingredientMatches(ingredients, keyword) {
+  const clean = String(keyword || "").toLowerCase();
+  return ingredients.some((item) => item.includes(clean) || clean.includes(item));
+}
+
+function recipeMatchScore(recipe, ingredients) {
+  const requiredHits = recipe.needs.filter((need) => ingredientMatches(ingredients, need)).length;
+  if (requiredHits < recipe.needs.length) return -1;
+  const niceHits = recipe.nice.filter((item) => ingredientMatches(ingredients, item)).length;
+  return requiredHits * 10 + niceHits;
+}
+
+function generateHealthyRecipes() {
+  const ingredients = ingredientTokens(els.recipeIngredients?.value);
+  if (!ingredients.length) {
+    renderRecipeSuggestions([], "Add ingredients you have on hand first — for example: chicken, rice, eggs, Greek yogurt, broccoli.");
+    return;
+  }
+  const suggestions = healthyRecipeTemplates
+    .map((recipe) => ({ ...recipe, score: recipeMatchScore(recipe, ingredients) }))
+    .filter((recipe) => recipe.score >= 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+
+  if (!suggestions.length) {
+    const titleIngredients = ingredients.slice(0, 3).map((item) => item.replace(/\b\w/g, (c) => c.toUpperCase())).join(" + ");
+    suggestions.push({
+      name: `${titleIngredients || "On-Hand"} Lean Plate`,
+      serving: "1 plate",
+      calories: 450,
+      protein: 35,
+      carbs: 35,
+      fat: 14,
+      fiber: 6,
+      prep: "Build a plate around your leanest protein, add a fist-sized carb if available, and fill the rest with vegetables. Keep oils, cheese, and sauces measured.",
+      why: "Fallback healthy plate using what you already have.",
+      needs: ingredients.slice(0, 3),
+      nice: [],
+      score: 1,
+    });
+  }
+  state.recipeSuggestions = suggestions.map((recipe) => normalizedFood({
+    name: recipe.name,
+    serving: recipe.serving,
+    calories: recipe.calories,
+    protein: recipe.protein,
+    carbs: recipe.carbs,
+    fat: recipe.fat,
+    fiber: recipe.fiber,
+    source: "recipe",
+    dataType: "Recipe",
+    prep: recipe.prep,
+    why: recipe.why,
+  }));
+  saveState("Recipe ideas generated");
+  renderRecipeSuggestions(state.recipeSuggestions);
+}
+
+function renderRecipeSuggestions(recipes = state.recipeSuggestions || [], message = "") {
+  if (!els.recipeSuggestions) return;
+  if (message) {
+    els.recipeSuggestions.innerHTML = `<p class="support-copy">${escapeHtml(message)}</p>`;
+    return;
+  }
+  els.recipeSuggestions.innerHTML = recipes.length ? recipes.map((recipe, index) => `
+    <article class="recipe-result">
+      <div>
+        <strong>${escapeHtml(recipe.name)}</strong>
+        <span>${escapeHtml(recipe.serving)} · ${formatMacro(recipe.calories)} cal · P ${formatMacro(recipe.protein)}g · C ${formatMacro(recipe.carbs)}g · F ${formatMacro(recipe.fat)}g</span>
+        <p>${escapeHtml(recipe.prep || "")}</p>
+        <small>${escapeHtml(recipe.why || "Healthy recipe idea using ingredients on hand.")}</small>
+      </div>
+      <button type="button" data-log-recipe="${index}">Log Recipe</button>
+    </article>
+  `).join("") : `<p class="support-copy">Enter ingredients and tap Generate Healthy Recipes.</p>`;
+}
+
 function normalizeUsdaFood(food, servingContext = {}) {
   const description = String(food.description || food.lowercaseDescription || "USDA food").trim();
   const brand = String(food.brandOwner || food.brandName || "").trim();
@@ -1083,7 +1228,7 @@ async function searchUsdaFoods() {
   const amount = els.foodServingAmount.value || parsed.amount || "100";
   const unit = normalizeServingUnit(els.foodServingUnit.value || parsed.unit || "g");
   const servingText = servingLabel(amount, unit, servingGrams(amount, unit));
-  showFoodSearchStatus("Searching FatSecret nutrition database...", "status-warn");
+  showFoodSearchStatus("Searching nutrition database...", "status-warn");
 
   const localResults = localFoodMatches(query, { amount, unit });
   try {
@@ -1094,17 +1239,17 @@ async function searchUsdaFoods() {
         .slice(0, 8);
       state.usdaSearchResults = results;
       renderFoodSearchResults(results);
-      showFoodSearchStatus(`Found ${results.length} FatSecret options for ${servingText}. Tap one to add it to the selected meal.`, "status-good");
+      showFoodSearchStatus(`Found ${results.length} database options for ${servingText}. Tap one to add it to the selected meal.`, "status-good");
       return;
     }
   } catch (error) {
-    console.warn("FatSecret lookup unavailable", error);
+    console.warn("Database lookup unavailable", error);
   }
 
   if (localResults.length) {
     state.usdaSearchResults = localResults;
     renderFoodSearchResults(localResults);
-    showFoodSearchStatus("FatSecret is not configured or unavailable, so showing common estimates. Manual entry is still available below.", "status-warn");
+    showFoodSearchStatus("Database is unavailable, so showing common estimates. Manual entry is still available below.", "status-warn");
     return;
   }
 
@@ -1126,7 +1271,7 @@ async function searchUsdaFoods() {
       .slice(0, 8);
     state.usdaSearchResults = results;
     renderFoodSearchResults(results);
-    showFoodSearchStatus(results.length ? `FatSecret was unavailable, so found ${results.length} USDA fallback options for ${servingText}.` : "No macro results found. Use manual entry below.", results.length ? "status-warn" : "status-bad");
+    showFoodSearchStatus(results.length ? `Database was unavailable, so found ${results.length} USDA fallback options for ${servingText}.` : "No macro results found. Use manual entry below.", results.length ? "status-warn" : "status-bad");
   } catch (error) {
     state.usdaSearchResults = [];
     renderFoodSearchResults([]);
@@ -1164,6 +1309,7 @@ function validateImportedState(imported) {
   imported.favoriteFoods ||= defaultFavoriteFoods;
   imported.recentFoods ||= [];
   imported.customFoods ||= [];
+  imported.recipeSuggestions ||= [];
   imported.measurements ||= {};
   imported.progressPictures ||= {};
   imported.settings = { ...DEFAULT_SETTINGS, ...(imported.settings || {}) };
@@ -2683,6 +2829,9 @@ function cacheElements() {
     "custom-food-fat",
     "custom-food-fiber",
     "save-custom-food",
+    "recipe-ingredients",
+    "generate-recipes",
+    "recipe-suggestions",
     "favorite-foods",
     "save-favorite-food",
     "meal-list",
@@ -2979,6 +3128,13 @@ function bindEvents() {
     if (food) addFoodToMeal(Number(els.foodSearchMeal?.value || 0), food);
   });
   els.saveCustomFood?.addEventListener("click", saveCustomFoodFromForm);
+  els.generateRecipes?.addEventListener("click", generateHealthyRecipes);
+  els.recipeSuggestions?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-log-recipe]");
+    if (!button) return;
+    const recipe = (state.recipeSuggestions || [])[Number(button.dataset.logRecipe)];
+    if (recipe) addFoodToMeal(Number(els.foodSearchMeal?.value || 0), recipe);
+  });
 
   els.saveFavoriteFood.addEventListener("click", () => {
     if (!state.lastFood) {
