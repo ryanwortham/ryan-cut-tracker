@@ -7,7 +7,7 @@
     <link rel="icon" href="./forged-icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./forged-icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=20260615-auth-beta" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-usda-food-search" />
   </head>
   <body>
     <div id="auth-gate" class="privacy-gate auth-gate" role="dialog" aria-modal="true" aria-label="FORGED account login">
@@ -564,6 +564,36 @@
           </article>
         </div>
 
+        <section class="food-search-card">
+          <div class="section-title">
+            <div>
+              <p class="label">USDA lookup</p>
+              <h2>Search Food Database</h2>
+            </div>
+            <span>Manual entry stays below</span>
+          </div>
+          <form id="food-search-form" class="food-search-form">
+            <label class="field-card">
+              <span>Food or ingredient</span>
+              <input id="food-search-query" type="search" placeholder="Chicken breast, eggs, rice, Greek yogurt" autocomplete="off" />
+            </label>
+            <label class="field-card">
+              <span>Add to meal</span>
+              <select id="food-search-meal">
+                <option value="0">Meal 1</option>
+                <option value="1">Meal 2</option>
+                <option value="2">Meal 3</option>
+                <option value="3">Meal 4</option>
+                <option value="4">Meal 5</option>
+                <option value="5">Meal 6</option>
+              </select>
+            </label>
+            <button id="food-search-button" class="complete-button" type="submit">Search USDA</button>
+          </form>
+          <p id="food-search-status" class="support-copy">Search USDA for macros, then tap a result to add calories, protein, carbs, and fat. If USDA is off, use the manual fields in each meal.</p>
+          <div id="food-search-results" class="food-search-results"><p class="support-copy">No USDA results yet.</p></div>
+        </section>
+
         <section class="favorite-foods-card">
           <div class="section-title">
             <div>
@@ -1077,6 +1107,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./supabase-config.js"></script>
-    <script src="./app.js?v=20260615-supabase-beta"></script>
+    <script src="./app.js?v=20260615-usda-food-search"></script>
   </body>
 </html>

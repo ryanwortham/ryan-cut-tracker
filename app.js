@@ -6,6 +6,9 @@ const AUTH_USERS_KEY = "forged-auth-users-v1";
 const AUTH_SESSION_KEY = "forged-auth-session-v1";
 const SUPABASE_STATE_TABLE = "forged_user_state";
 const SUPABASE_PROFILE_TABLE = "forged_profiles";
+const USDA_SEARCH_ENDPOINT = "https://api.nal.usda.gov/fdc/v1/foods/search";
+const USDA_API_KEY = window.FORGED_NUTRITION?.usdaApiKey || "DEMO_KEY";
+
 
 const DEFAULT_SETTINGS = {
   userName: "",
@@ -709,7 +712,8 @@ function setBar(id, current, goal) {
 function addFoodToMeal(mealIndex, food) {
   const entry = currentEntry();
   const meals = nutritionMeals(entry);
-  meals[mealIndex].push({
+  const cleanMealIndex = Math.max(0, Math.min(mealCount - 1, Number(mealIndex) || 0));
+  meals[cleanMealIndex].push({
     name: String(food.name || "Food").trim() || "Food",
     serving: String(food.serving || "").trim(),
     calories: Number(food.calories) || 0,
@@ -717,14 +721,98 @@ function addFoodToMeal(mealIndex, food) {
     carbs: Number(food.carbs) || 0,
     fat: Number(food.fat) || 0,
     fiber: Number(food.fiber) || 0,
+    source: food.source || "manual",
+    sourceId: food.sourceId || "",
   });
   const totals = nutritionTotals(entry);
   entry.caloriesEaten = totals.calories || "";
   entry.proteinGrams = totals.protein || "";
   if (totals.protein >= selectedProteinGoal()) entry.protein = true;
-  state.lastFood = meals[mealIndex][meals[mealIndex].length - 1];
-  saveState();
+  state.lastFood = meals[cleanMealIndex][meals[cleanMealIndex].length - 1];
+  saveState(food.source === "USDA" ? "USDA food added" : "Food added");
   loadForm();
+}
+
+function nutrientValue(food, nutrientNames) {
+  const nutrients = food?.foodNutrients || [];
+  const wanted = nutrientNames.map((name) => name.toLowerCase());
+  const nutrient = nutrients.find((item) => wanted.includes(String(item.nutrientName || item.name || "").toLowerCase()));
+  const value = Number(nutrient?.value ?? nutrient?.amount);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function normalizeUsdaFood(food) {
+  const description = String(food.description || food.lowercaseDescription || "USDA food").trim();
+  const brand = String(food.brandOwner || food.brandName || "").trim();
+  const servingSize = Number(food.servingSize);
+  const servingUnit = String(food.servingSizeUnit || "g").trim();
+  const householdServing = String(food.householdServingFullText || "").trim();
+  const serving = householdServing || (servingSize ? `${servingSize}${servingUnit}` : "100g reference");
+  return {
+    name: brand ? `${description} (${brand})` : description,
+    serving,
+    calories: nutrientValue(food, ["Energy"]),
+    protein: nutrientValue(food, ["Protein"]),
+    carbs: nutrientValue(food, ["Carbohydrate, by difference", "Carbohydrate, by summation"]),
+    fat: nutrientValue(food, ["Total lipid (fat)", "Total Fat"]),
+    fiber: nutrientValue(food, ["Fiber, total dietary", "Fiber"]),
+    source: "USDA",
+    sourceId: String(food.fdcId || ""),
+    dataType: food.dataType || "",
+  };
+}
+
+function renderFoodSearchResults(results = []) {
+  if (!els.foodSearchResults) return;
+  if (!results.length) {
+    els.foodSearchResults.innerHTML = '<p class="support-copy">No USDA results yet. Search above or use manual entry inside any meal.</p>';
+    return;
+  }
+  els.foodSearchResults.innerHTML = results.map((food, index) => `
+    <button type="button" data-usda-result="${index}">
+      <strong>${escapeHtml(food.name)}</strong>
+      <span>${escapeHtml(food.serving)} · ${Math.round(food.calories).toLocaleString()} cal · P ${Math.round(food.protein)}g · C ${Math.round(food.carbs)}g · F ${Math.round(food.fat)}g${food.fiber ? ` · Fiber ${Math.round(food.fiber)}g` : ""}</span>
+      <small>${escapeHtml(food.dataType || "USDA")} ${food.sourceId ? `#${escapeHtml(food.sourceId)}` : ""}</small>
+    </button>
+  `).join("");
+}
+
+async function searchUsdaFoods() {
+  const query = String(els.foodSearchQuery?.value || "").trim();
+  if (!query) {
+    showFoodSearchStatus("Type a food first, like chicken breast, egg, rice, or Greek yogurt.", "status-warn");
+    return;
+  }
+  showFoodSearchStatus("Searching USDA FoodData Central...", "status-warn");
+  try {
+    const params = new URLSearchParams({
+      api_key: USDA_API_KEY,
+      query,
+      pageSize: "8",
+      sortBy: "dataType.keyword",
+      sortOrder: "asc",
+    });
+    const response = await fetch(`${USDA_SEARCH_ENDPOINT}?${params.toString()}`);
+    if (!response.ok) throw new Error(`USDA search failed (${response.status})`);
+    const data = await response.json();
+    const results = (data.foods || [])
+      .map(normalizeUsdaFood)
+      .filter((food) => food.calories || food.protein || food.carbs || food.fat);
+    state.usdaSearchResults = results;
+    renderFoodSearchResults(results);
+    showFoodSearchStatus(results.length ? `Found ${results.length} USDA foods. Tap one to add it to the selected meal.` : "No USDA macro results found. Use manual entry below.", results.length ? "status-good" : "status-warn");
+  } catch (error) {
+    state.usdaSearchResults = [];
+    renderFoodSearchResults([]);
+    showFoodSearchStatus(`${error.message}. Manual entry is still available below.`, "status-bad");
+  }
+}
+
+function showFoodSearchStatus(message, tone = "") {
+  if (!els.foodSearchStatus) return;
+  els.foodSearchStatus.textContent = message;
+  els.foodSearchStatus.classList.remove("status-good", "status-warn", "status-bad");
+  if (tone) els.foodSearchStatus.classList.add(tone);
 }
 
 function validateSettingValue(settingKey, raw) {
@@ -1429,6 +1517,7 @@ function renderNutrition() {
   setText("nutrition-water-goal", `${goals.water.toLocaleString()} oz`);
   setText("nutrition-water-remaining", `${Math.max(0, goals.water - water).toLocaleString()} oz remaining`);
   setBar("nutrition-water-bar", water, goals.water);
+  renderFoodSearchResults(state.usdaSearchResults || []);
 
   els.favoriteFoods.innerHTML = (state.favoriteFoods || defaultFavoriteFoods)
     .map((food, index) => `
@@ -2235,6 +2324,12 @@ function cacheElements() {
     "nutrition-water-goal",
     "nutrition-water-remaining",
     "nutrition-water-bar",
+    "food-search-form",
+    "food-search-query",
+    "food-search-meal",
+    "food-search-button",
+    "food-search-status",
+    "food-search-results",
     "favorite-foods",
     "save-favorite-food",
     "meal-list",
@@ -2508,6 +2603,19 @@ function bindEvents() {
     entry.proteinGrams = totals.protein || "";
     saveState("Copied yesterday's meals");
     loadForm();
+  });
+
+  els.foodSearchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    searchUsdaFoods();
+  });
+
+  els.foodSearchResults.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-usda-result]");
+    if (!button) return;
+    const food = (state.usdaSearchResults || [])[Number(button.dataset.usdaResult)];
+    if (!food) return;
+    addFoodToMeal(Number(els.foodSearchMeal.value), food);
   });
 
   els.saveFavoriteFood.addEventListener("click", () => {

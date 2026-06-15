@@ -927,6 +927,7 @@ h2 {
 .nutrition-manual-card,
 .nutrition-summary-card,
 .favorite-foods-card,
+.food-search-card,
 .future-food-card,
 .meal-card {
   border: 1px solid rgba(255, 255, 255, 0.11);
@@ -940,6 +941,7 @@ h2 {
 .nutrition-manual-card,
 .nutrition-summary-card,
 .favorite-foods-card,
+.food-search-card,
 .future-food-card {
   margin-top: 14px;
   padding: 16px;
@@ -1021,6 +1023,7 @@ h2 {
 
 .water-actions button,
 .favorite-foods button,
+.food-search-results button,
 .food-row button {
   min-height: 42px;
   border: 1px solid rgba(61, 220, 132, 0.36);
@@ -1030,13 +1033,24 @@ h2 {
   font-weight: 900;
 }
 
-.favorite-foods {
+.favorite-foods,
+.food-search-results {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.favorite-foods button {
+.food-search-form {
+  display: grid;
+  gap: 10px;
+}
+
+.food-search-results {
+  margin-top: 12px;
+}
+
+.favorite-foods button,
+.food-search-results button {
   display: grid;
   gap: 4px;
   align-content: center;
@@ -1045,10 +1059,16 @@ h2 {
   text-align: left;
 }
 
-.favorite-foods button span {
+.favorite-foods button span,
+.food-search-results button span,
+.food-search-results button small {
   color: var(--muted);
   font-size: 0.76rem;
   line-height: 1.25;
+}
+
+.food-search-results button small {
+  font-weight: 800;
 }
 
 .meal-tracker-list {
@@ -2187,6 +2207,11 @@ textarea {
 @media (min-width: 680px) {
   .app-shell {
     padding-top: 28px;
+  }
+
+  .food-search-form {
+    grid-template-columns: 1.6fr 0.8fr auto;
+    align-items: end;
   }
 
   .hero-card {
