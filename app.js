@@ -611,6 +611,8 @@ function loadState() {
   state.entries ||= {};
   state.customSupplements ||= [];
   state.favoriteFoods ||= defaultFavoriteFoods;
+  state.recentFoods ||= [];
+  state.customFoods ||= [];
   state.measurements ||= {};
   state.progressPictures ||= {};
   state.progressRange ||= 7;
@@ -733,13 +735,11 @@ function setBar(id, current, goal) {
   node.style.width = `${Math.max(0, Math.min(100, (Number(current) / Math.max(1, Number(goal))) * 100))}%`;
 }
 
-function addFoodToMeal(mealIndex, food) {
-  const entry = currentEntry();
-  const meals = nutritionMeals(entry);
-  const cleanMealIndex = Math.max(0, Math.min(mealCount - 1, Number(mealIndex) || 0));
-  meals[cleanMealIndex].push({
+function normalizedFood(food) {
+  return {
     name: String(food.name || "Food").trim() || "Food",
-    serving: String(food.serving || "").trim(),
+    brand: String(food.brand || "").trim(),
+    serving: String(food.serving || "1 serving").trim(),
     calories: Number(food.calories) || 0,
     protein: Number(food.protein) || 0,
     carbs: Number(food.carbs) || 0,
@@ -747,14 +747,31 @@ function addFoodToMeal(mealIndex, food) {
     fiber: Number(food.fiber) || 0,
     source: food.source || "manual",
     sourceId: food.sourceId || "",
-  });
+    dataType: food.dataType || food.source || "manual",
+  };
+}
+
+function recordRecentFood(food) {
+  state.recentFoods ||= [];
+  const clean = normalizedFood(food);
+  state.recentFoods = [clean, ...state.recentFoods.filter((item) => `${item.name}|${item.serving}`.toLowerCase() !== `${clean.name}|${clean.serving}`.toLowerCase())].slice(0, 20);
+}
+
+function addFoodToMeal(mealIndex, food) {
+  const entry = currentEntry();
+  const meals = nutritionMeals(entry);
+  const cleanMealIndex = Math.max(0, Math.min(mealCount - 1, Number(mealIndex) || 0));
+  const cleanFood = normalizedFood(food);
+  meals[cleanMealIndex].push(cleanFood);
   const totals = nutritionTotals(entry);
   entry.caloriesEaten = totals.calories || "";
   entry.proteinGrams = totals.protein || "";
   if (totals.protein >= selectedProteinGoal()) entry.protein = true;
-  state.lastFood = meals[cleanMealIndex][meals[cleanMealIndex].length - 1];
-  saveState(food.source ? `${food.source} food added` : "Food added");
+  state.lastFood = cleanFood;
+  recordRecentFood(cleanFood);
+  saveState(cleanFood.source ? `${cleanFood.source} food added` : "Food added");
   loadForm();
+  renderRecentFoods();
 }
 
 function nutrientValue(food, nutrientNames) {
@@ -843,9 +860,13 @@ function localFoodMatches(query, servingContext = {}) {
   const cleanQuery = String(query || "").toLowerCase();
   const amount = servingContext.amount || "100";
   const unit = normalizeServingUnit(servingContext.unit || "g");
-  return commonFoodMacros
+  const savedMatches = [...(state.customFoods || []), ...(state.recentFoods || []), ...(state.favoriteFoods || [])]
+    .filter((food) => `${food.name || ""} ${food.brand || ""}`.toLowerCase().includes(cleanQuery))
+    .slice(0, 4)
+    .map((food, index) => ({ ...normalizedFood(food), dataType: food.dataType || "Saved", score: -120 + index }));
+  const estimates = commonFoodMacros
     .filter((food) => food.keywords.some((keyword) => cleanQuery.includes(keyword) || keyword.includes(cleanQuery)))
-    .slice(0, 2)
+    .slice(0, 4)
     .map((food, index) => {
       const grams = unit === "serving" && food.servingGrams ? Number(amount || 1) * food.servingGrams : servingGrams(amount, unit);
       const multiplier = grams / 100;
@@ -863,6 +884,7 @@ function localFoodMatches(query, servingContext = {}) {
       score: -100 + index,
       };
     });
+  return [...savedMatches, ...estimates].slice(0, 8);
 }
 
 function parseMacroFromText(text, labels) {
@@ -940,6 +962,68 @@ async function searchFatSecretFoods(query, amount, unit) {
   if (!response.ok) throw new Error(`FatSecret search failed (${response.status})`);
   const payload = await response.json();
   return normalizeFatSecretPayload(payload, { amount, unit, query }).slice(0, 8);
+}
+
+async function searchBarcodeFood() {
+  const clean = String(els.barcodeInput?.value || "").replace(/\D/g, "");
+  if (clean.length < 8) {
+    showFoodSearchStatus("Enter or scan at least 8 barcode digits.", "status-warn");
+    return;
+  }
+  showFoodSearchStatus("Looking up packaged food barcode...", "status-warn");
+  try {
+    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${clean}.json?fields=product_name,brands,serving_size,nutriments`);
+    if (!response.ok) throw new Error(`Barcode lookup failed (${response.status})`);
+    const payload = await response.json();
+    if (!payload.product) throw new Error("No packaged food found for that barcode");
+    const n = payload.product.nutriments || {};
+    const food = normalizedFood({
+      name: payload.product.product_name || `Barcode ${clean}`,
+      brand: payload.product.brands || "Open Food Facts",
+      serving: payload.product.serving_size || "100 g",
+      calories: n["energy-kcal_serving"] || n["energy-kcal_100g"] || 0,
+      protein: n.proteins_serving || n.proteins_100g || 0,
+      carbs: n.carbohydrates_serving || n.carbohydrates_100g || 0,
+      fat: n.fat_serving || n.fat_100g || 0,
+      fiber: n.fiber_serving || n.fiber_100g || 0,
+      source: "Open Food Facts",
+      sourceId: clean,
+      dataType: "Barcode",
+    });
+    state.usdaSearchResults = [food];
+    renderFoodSearchResults(state.usdaSearchResults);
+    showFoodSearchStatus("Barcode found. Tap the result to add it to the selected meal.", "status-good");
+  } catch (error) {
+    state.usdaSearchResults = [];
+    renderFoodSearchResults([]);
+    showFoodSearchStatus(`${error.message}. Create a custom food below if needed.`, "status-bad");
+  }
+}
+
+function saveCustomFoodFromForm() {
+  const food = normalizedFood({
+    name: els.customFoodName?.value,
+    brand: els.customFoodBrand?.value,
+    serving: els.customFoodServing?.value,
+    calories: els.customFoodCalories?.value,
+    protein: els.customFoodProtein?.value,
+    carbs: els.customFoodCarbs?.value,
+    fat: els.customFoodFat?.value,
+    fiber: els.customFoodFiber?.value,
+    source: "custom",
+    dataType: "Custom",
+  });
+  if (!food.name || food.name === "Food") {
+    showFoodSearchStatus("Custom food needs a name.", "status-warn");
+    return;
+  }
+  state.customFoods ||= [];
+  state.customFoods = [food, ...state.customFoods.filter((item) => `${item.name}|${item.serving}`.toLowerCase() !== `${food.name}|${food.serving}`.toLowerCase())].slice(0, 50);
+  state.favoriteFoods ||= [];
+  if (!state.favoriteFoods.some((item) => `${item.name}|${item.serving}`.toLowerCase() === `${food.name}|${food.serving}`.toLowerCase())) state.favoriteFoods.unshift(food);
+  addFoodToMeal(Number(els.foodSearchMeal?.value || 0), food);
+  ["customFoodName", "customFoodBrand", "customFoodServing", "customFoodCalories", "customFoodProtein", "customFoodCarbs", "customFoodFat", "customFoodFiber"].forEach((key) => { if (els[key]) els[key].value = ""; });
+  showFoodSearchStatus("Custom food saved, favorited, and logged.", "status-good");
 }
 
 function normalizeUsdaFood(food, servingContext = {}) {
@@ -1078,6 +1162,8 @@ function validateImportedState(imported) {
   }
   imported.customSupplements ||= [];
   imported.favoriteFoods ||= defaultFavoriteFoods;
+  imported.recentFoods ||= [];
+  imported.customFoods ||= [];
   imported.measurements ||= {};
   imported.progressPictures ||= {};
   imported.settings = { ...DEFAULT_SETTINGS, ...(imported.settings || {}) };
@@ -1731,6 +1817,17 @@ function renderAchievements(key) {
   els.dashAchievements.innerHTML = badges
     .map(([label, done]) => `<div class="badge ${done ? "is-earned" : ""}"><span>${done ? "OK" : "--"}</span><strong>${label}</strong></div>`)
     .join("");
+}
+
+function renderRecentFoods() {
+  if (!els.recentFoods) return;
+  const foods = state.recentFoods || [];
+  els.recentFoods.innerHTML = foods.length ? foods.slice(0, 12).map((food, index) => `
+    <button type="button" data-recent-index="${index}">
+      <strong>${escapeHtml(food.name)}</strong>
+      <span>${escapeHtml(food.serving)} · ${formatMacro(food.calories)} cal · P ${formatMacro(food.protein)}g</span>
+    </button>
+  `).join("") : `<p class="support-copy">Recent foods appear here after you log them once.</p>`;
 }
 
 function renderNutrition() {
@@ -2574,6 +2671,18 @@ function cacheElements() {
     "food-search-button",
     "food-search-status",
     "food-search-results",
+    "barcode-input",
+    "barcode-search-button",
+    "recent-foods",
+    "custom-food-name",
+    "custom-food-brand",
+    "custom-food-serving",
+    "custom-food-calories",
+    "custom-food-protein",
+    "custom-food-carbs",
+    "custom-food-fat",
+    "custom-food-fiber",
+    "save-custom-food",
     "favorite-foods",
     "save-favorite-food",
     "meal-list",
@@ -2861,6 +2970,15 @@ function bindEvents() {
     if (!food) return;
     addFoodToMeal(Number(els.foodSearchMeal.value), food);
   });
+
+  els.barcodeSearchButton?.addEventListener("click", searchBarcodeFood);
+  els.recentFoods?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-recent-index]");
+    if (!button) return;
+    const food = (state.recentFoods || [])[Number(button.dataset.recentIndex)];
+    if (food) addFoodToMeal(Number(els.foodSearchMeal?.value || 0), food);
+  });
+  els.saveCustomFood?.addEventListener("click", saveCustomFoodFromForm);
 
   els.saveFavoriteFood.addEventListener("click", () => {
     if (!state.lastFood) {

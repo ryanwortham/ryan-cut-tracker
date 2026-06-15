@@ -2323,3 +2323,41 @@ textarea {
   .topbar { align-items: flex-start; }
   .topbar-status { width: 100%; justify-content: space-between; }
 }
+
+.barcode-row {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.recent-foods-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(85, 199, 255, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(85, 199, 255, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.custom-food-panel {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.custom-food-panel summary {
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.custom-food-form {
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .barcode-row {
+    grid-template-columns: 1fr;
+  }
+}

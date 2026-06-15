@@ -603,8 +603,40 @@
             </label>
             <button id="food-search-button" class="complete-button" type="submit">Search FatSecret</button>
           </form>
-          <p id="food-search-status" class="support-copy">Search FatSecret for macros, then tap a result to add it. Type amounts naturally, like “6 oz chicken breast,” or use the serving fields. Manual entry stays available in each meal.</p>
+          <div class="barcode-row">
+            <label class="field-card">
+              <span>Barcode / UPC</span>
+              <input id="barcode-input" inputmode="numeric" placeholder="Type or scan barcode" />
+            </label>
+            <button id="barcode-search-button" class="text-button" type="button">Lookup Barcode</button>
+          </div>
+          <p id="food-search-status" class="support-copy">Search FatSecret for macros, scan packaged foods by barcode, repeat recents, or save a custom food. Type amounts naturally, like “6 oz chicken breast.”</p>
           <div id="food-search-results" class="food-search-results"><p class="support-copy">No FatSecret results yet.</p></div>
+          <details class="custom-food-panel">
+            <summary>Create Custom Food</summary>
+            <div class="builder-form custom-food-form">
+              <label><span>Name</span><input id="custom-food-name" placeholder="Ryan's chicken bowl" /></label>
+              <label><span>Brand</span><input id="custom-food-brand" placeholder="Optional" /></label>
+              <label><span>Serving</span><input id="custom-food-serving" placeholder="1 bowl, 6 oz, 1 scoop" /></label>
+              <label><span>Calories</span><input id="custom-food-calories" type="number" min="0" inputmode="numeric" /></label>
+              <label><span>Protein</span><input id="custom-food-protein" type="number" min="0" inputmode="decimal" /></label>
+              <label><span>Carbs</span><input id="custom-food-carbs" type="number" min="0" inputmode="decimal" /></label>
+              <label><span>Fat</span><input id="custom-food-fat" type="number" min="0" inputmode="decimal" /></label>
+              <label><span>Fiber</span><input id="custom-food-fiber" type="number" min="0" inputmode="decimal" /></label>
+              <button id="save-custom-food" class="complete-button span-2" type="button">Save + Log Custom Food</button>
+            </div>
+          </details>
+        </section>
+
+        <section class="recent-foods-card">
+          <div class="section-title">
+            <div>
+              <p class="label">Quick Add</p>
+              <h2>Recent Foods</h2>
+            </div>
+            <span>Tap to repeat</span>
+          </div>
+          <div id="recent-foods" class="favorite-foods"></div>
         </section>
 
         <section class="favorite-foods-card">
@@ -648,7 +680,7 @@
           <p class="label">Food Database Ready</p>
           <div class="future-food-grid">
             <span>USDA database</span>
-            <span>Barcode scanner</span>
+            <span>Barcode lookup</span>
             <span>AI food recognition</span>
             <span>Restaurant nutrition lookup</span>
           </div>
