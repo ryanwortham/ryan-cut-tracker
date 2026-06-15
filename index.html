@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ryan Cut Tracker</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css?v=20260615-production-readiness" />
+  </head>
+  <body>
+    <div id="privacy-gate" class="privacy-gate" role="dialog" aria-modal="true" aria-label="Private tracker lock">
+      <div class="privacy-card">
+        <p class="eyebrow">Private local tracker · saved on this device</p>
+        <h1>Ryan Cut Tracker</h1>
+        <p class="support-copy">This page can contain body weight, progress photos, supplements, and health habits. It is intended for Ryan only.</p>
+        <label class="field-card">
+          <span>Unlock code</span>
+          <input id="privacy-code" type="password" autocomplete="off" placeholder="Type RYAN to unlock" />
+        </label>
+        <button id="privacy-unlock" class="complete-button" type="button">Unlock Private Tracker</button>
+        <p class="support-copy">Casual browser gate only. For a public URL, still use Cloudflare Access, Basic Auth, or another real server-side password.</p>
+      </div>
+    </div>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Private local tracker</p>
+          <h1>Ryan Cut Tracker</h1>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="App sections">
+        <button class="tab is-active" type="button" data-tab="checkin">Check-In</button>
+        <button class="tab" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab" type="button" data-tab="workout">Workout</button>
+        <button class="tab" type="button" data-tab="diet">Diet</button>
+        <button class="tab" type="button" data-tab="supplements">Supps</button>
+        <button class="tab" type="button" data-tab="progress">Progress</button>
+        <button class="tab" type="button" data-tab="weekly">Weekly</button>
+        <button class="tab" type="button" data-tab="settings">Settings</button>
+      </nav>
+
+      <section id="checkin" class="tab-panel is-active">
+        <form id="checkin-form" class="stack">
+          <div class="page-heading">
+            <p class="label">Today</p>
+            <h2>Today's Check-In</h2>
+          </div>
+
+          <section class="daily-action-block" aria-label="Daily action summary">
+            <div class="score-ring" aria-label="Daily score">
+              <span>Main Score: <strong id="today-score">0/10</strong></span>
+              <span>Bonus: <strong id="today-bonus">+0</strong></span>
+              <span>Total: <strong id="today-total">0</strong></span>
+              <span>Streak: <strong id="today-streak">0 days</strong></span>
+            </div>
+            <p id="score-mini-line" class="score-mini-line">0 of 10 main points completed · +0 bonus</p>
+
+            <button id="start-today" class="start-button" type="button">Start Today's Check-In</button>
+            <p id="start-helper" class="support-copy">Creates today's log and enables auto-save. It will not reset your day.</p>
+
+            <div class="hero-card">
+              <div>
+                <p class="label">Current Cut</p>
+                <strong id="cut-summary">265 to 220</strong>
+                <span id="goal-date-line">Goal by Oct 1, 2026</span>
+              </div>
+              <div class="progress-block">
+                <div class="progress-labels">
+                  <span id="progress-start-label">265</span>
+                  <span id="progress-goal-label">220</span>
+                </div>
+                <div class="progress-track">
+                  <div id="weight-progress" class="progress-fill"></div>
+                </div>
+                <div id="cut-progress-details" class="cut-progress-details"></div>
+              </div>
+            </div>
+          </section>
+
+          <div class="mission-card">
+            <p class="label">Today's Mission</p>
+            <div id="mission-content" class="mission-grid"></div>
+          </div>
+
+          <div class="mission-card workout-brief-card">
+            <div class="section-title">
+              <div>
+                <p class="label">Today&apos;s Workout</p>
+                <h2 id="checkin-workout-title">Workout Plan</h2>
+              </div>
+              <span id="checkin-workout-date">Today</span>
+            </div>
+            <div id="checkin-workout-summary" class="workout-brief">
+              <p>Loading the selected date's workout plan...</p>
+            </div>
+          </div>
+
+          <div class="date-row">
+            <button class="date-button" type="button" id="prev-day" aria-label="Previous day">&lt;</button>
+            <label>
+              <span>Date</span>
+              <input id="entry-date" type="date" />
+            </label>
+            <button class="date-button" type="button" id="next-day" aria-label="Next day">&gt;</button>
+          </div>
+
+          <div class="input-grid">
+            <label class="field-card">
+              <span>Morning weight (lb)</span>
+              <input id="weight" type="number" step="0.1" min="150" max="350" placeholder="e.g. 265.0" inputmode="decimal" />
+            </label>
+            <label class="field-card">
+              <span>Sleep (hrs)</span>
+              <input id="sleep" type="number" step="0.25" min="0" max="14" placeholder="e.g. 7.0" inputmode="decimal" />
+            </label>
+            <label class="field-card">
+              <span>Steps</span>
+              <input id="steps" type="number" min="0" max="60000" placeholder="e.g. 10000" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Cardio minutes (min)</span>
+              <input id="cardio-minutes" type="number" min="0" max="240" placeholder="e.g. 30" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Calories burned (kcal)</span>
+              <input id="active-calories" type="number" min="0" max="5000" placeholder="e.g. 450" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Strength workout (min)</span>
+              <input id="workout-duration" type="number" min="0" max="300" placeholder="e.g. 60" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Avg heart rate (bpm)</span>
+              <input id="heart-rate" type="number" min="30" max="220" placeholder="e.g. 128" inputmode="numeric" />
+            </label>
+          </div>
+
+          <div class="quick-entry-card">
+            <div>
+              <span>Steps</span>
+              <div class="quick-buttons" data-quick-group="steps">
+                <button type="button" data-quick-steps="8000">8k</button>
+                <button type="button" data-quick-steps="10000">10k</button>
+                <button type="button" data-quick-steps="12500">12.5k</button>
+                <button type="button" data-quick-steps="15000">15k</button>
+              </div>
+            </div>
+            <div>
+              <span>Cardio</span>
+              <div class="quick-buttons" data-quick-group="cardio">
+                <button type="button" data-quick-cardio="20">20 min</button>
+                <button type="button" data-quick-cardio="30">30 min</button>
+                <button type="button" data-quick-cardio="45">45 min</button>
+                <button type="button" data-quick-cardio="60">60 min</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mission-card">
+            <div class="section-title">
+              <h2>Today Summary</h2>
+              <span id="summary-date">Today</span>
+            </div>
+            <div id="today-summary" class="summary-grid"></div>
+          </div>
+
+          <details class="score-help">
+            <summary>Score breakdown</summary>
+            <div id="score-breakdown" class="score-breakdown"></div>
+          </details>
+
+          <div class="check-card">
+            <div class="section-title">
+              <h2>Discipline</h2>
+              <span id="save-state">Auto-saved locally</span>
+            </div>
+            <div id="habit-list" class="habit-list"></div>
+          </div>
+
+          <div class="check-card">
+            <div class="section-title">
+              <h2>Temptation Log</h2>
+              <span id="temptation-summary">Clean day</span>
+            </div>
+            <button id="confirm-clean-day" class="clean-day-button" type="button">Confirm Clean Day</button>
+            <p class="support-copy">No-violation points count after you confirm a clean day. Logging a violation turns this off.</p>
+            <div id="temptation-list" class="chip-list"></div>
+          </div>
+
+          <div class="check-card">
+            <div class="section-title">
+              <h2>Apple Health</h2>
+              <span>Sync planned</span>
+            </div>
+            <label class="habit compact-habit">
+              <input id="manual-watch-import" type="checkbox" />
+              <span>
+                <strong>Imported manually from Apple Watch</strong>
+                <span>Manual fallback stays available.</span>
+              </span>
+            </label>
+            <p class="support-copy">Manual Apple Watch entry is available for now. Native Apple Health sync can be added later.</p>
+          </div>
+
+          <div class="check-card completion-card">
+            <div class="section-title">
+              <h2>Finish</h2>
+              <span id="completion-status">Not complete</span>
+            </div>
+            <button id="complete-today" class="complete-button" type="button">Complete Today</button>
+            <p class="support-copy">You can still edit anything after marking the day complete.</p>
+          </div>
+        </form>
+      </section>
+
+      <section id="dashboard" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Overview</p>
+          <h2>Dashboard</h2>
+        </div>
+        <div id="dashboard-empty-state" class="empty-state"></div>
+        <div class="score-summary">
+          <article>
+            <span>Main Score</span>
+            <strong><span id="metric-main-score">0</span>/10</strong>
+          </article>
+          <article>
+            <span>Bonus</span>
+            <strong id="metric-bonus-score">+0</strong>
+          </article>
+          <article>
+            <span>Total Score</span>
+            <strong id="metric-total-score">0</strong>
+          </article>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span>Starting weight</span>
+            <strong id="metric-start-weight">265.0 lb</strong>
+          </article>
+          <article class="metric-card">
+            <span>Goal weight</span>
+            <strong id="metric-goal-weight">220.0 lb</strong>
+          </article>
+          <article class="metric-card">
+            <span>Current weight</span>
+            <strong id="metric-current">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>Pounds lost</span>
+            <strong id="metric-lost">0.0</strong>
+          </article>
+          <article class="metric-card">
+            <span>Pounds remaining</span>
+            <strong id="metric-remaining">45.0</strong>
+          </article>
+          <article class="metric-card">
+            <span>Weeks remaining</span>
+            <strong id="metric-weeks-remaining">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>Required pace</span>
+            <strong id="metric-required-pace">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>Actual pace</span>
+            <strong id="metric-actual-pace">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>7-day average</span>
+            <strong id="metric-seven">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>Weekly change</span>
+            <strong id="metric-weekly">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>Projected goal</span>
+            <strong id="metric-projected">--</strong>
+          </article>
+          <article class="metric-card">
+            <span>Weekly compliance</span>
+            <strong id="metric-compliance">0%</strong>
+          </article>
+          <article class="metric-card">
+            <span>Status</span>
+            <strong id="metric-track-status">Build data</strong>
+            <button id="dashboard-go-checkin" class="mini-action" type="button">Go to Check-In</button>
+          </article>
+        </div>
+
+        <div class="score-summary">
+          <article>
+            <span>Recovery Score</span>
+            <strong><span id="metric-recovery-score">0</span>/4</strong>
+          </article>
+          <article>
+            <span>Days Since Violation</span>
+            <strong id="metric-current-clean-streak">0 days</strong>
+          </article>
+          <article>
+            <span>Best Clean Streak</span>
+            <strong id="metric-best-clean-streak">0 days</strong>
+          </article>
+        </div>
+
+        <div class="insight-card">
+          <div class="section-title">
+            <h2>Recommendation</h2>
+            <span id="trend-tag">Waiting on data</span>
+          </div>
+          <p id="recommendation">Log check-ins for at least two weeks to unlock trend recommendations.</p>
+        </div>
+
+        <div class="chart-grid">
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Weight Trend</h2>
+              <span>14 days</span>
+            </div>
+            <div id="chart-weight" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Daily Score Trend</h2>
+              <span>14 days</span>
+            </div>
+            <div id="chart-score" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Steps Trend</h2>
+              <span>14 days</span>
+            </div>
+            <div id="chart-steps" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Cardio Minutes Trend</h2>
+              <span>14 days</span>
+            </div>
+            <div id="chart-cardio" class="chart"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="workout" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Training</p>
+          <h2>Workout Plan</h2>
+        </div>
+        <div class="workout-header">
+          <div>
+            <p class="label" id="workout-view-label">Today's Workout</p>
+            <h2 id="workout-week-range">Workout Plan</h2>
+          </div>
+          <span id="workout-day-label">Today</span>
+        </div>
+        <button id="full-week-toggle" class="text-button full-week-toggle" type="button">View full week</button>
+        <div id="workout-list" class="plan-list">
+          <article class="workout-card">
+            <p class="workout-instructions">Loading the selected date's exercises, sets, reps, cardio, and notes...</p>
+          </article>
+        </div>
+        <div class="history-card">
+          <div class="section-title">
+            <h2>Workout History</h2>
+            <span>By date</span>
+          </div>
+          <div id="workout-history" class="history-list"></div>
+        </div>
+      </section>
+
+      <section id="diet" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Nutrition</p>
+          <h2>Diet</h2>
+        </div>
+        <div class="plan-card">
+          <div class="section-title">
+            <h2>Meal Checklists</h2>
+            <span>Still track 1st Phorm</span>
+          </div>
+          <p class="support-copy">Tap meals here to save them to today's log. This does not replace tracking calories/macros in 1st Phorm.</p>
+          <div id="meal-options" class="meal-options"></div>
+          <div id="meal-log" class="mini-log"></div>
+        </div>
+
+        <div class="diet-grid">
+          <article class="plan-card">
+            <p class="label">Daily Targets</p>
+            <h2>Cutting Calories</h2>
+            <ul>
+              <li>Training days: 2,550-2,750 calories</li>
+              <li>Rest days: 2,300-2,450 calories</li>
+              <li>Protein: 250-260g/day</li>
+              <li>Adjust only after two full weeks of average-weight trend data.</li>
+            </ul>
+          </article>
+          <article class="plan-card">
+            <p class="label">Training Day Macros</p>
+            <h2>Lift + Cardio Days</h2>
+            <ul>
+              <li>Protein: 250-260g</li>
+              <li>Carbs: 230-280g</li>
+              <li>Fat: 55-70g</li>
+              <li>Put more carbs around training and keep dinner lean.</li>
+            </ul>
+          </article>
+          <article class="plan-card">
+            <p class="label">Rest Day Macros</p>
+            <h2>Recovery Days</h2>
+            <ul>
+              <li>Protein: 250-260g</li>
+              <li>Carbs: 120-170g</li>
+              <li>Fat: 70-85g</li>
+              <li>Keep steps high and use vegetables to stay full.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="plan-card">
+          <div class="section-title">
+            <h2>7-Day Meal Plan</h2>
+            <span>High protein, controlled carbs</span>
+          </div>
+          <div id="meal-plan" class="meal-plan"></div>
+        </div>
+
+        <div class="diet-grid">
+          <article class="plan-card">
+            <p class="label">Pizza World Approved</p>
+            <h2>Work Meals</h2>
+            <ul>
+              <li>Grilled chicken salad, dressing measured on the side</li>
+              <li>Chicken breast or lean protein with vegetables</li>
+              <li>Turkey, chicken, or lean beef bowl without extra cheese</li>
+              <li>Protein shake when the shift gets chaotic</li>
+              <li>Zero-calorie drink or water only</li>
+            </ul>
+          </article>
+          <article class="plan-card">
+            <p class="label">Pizza Rules</p>
+            <h2>Controlled Exposure</h2>
+            <ul>
+              <li>No grazing from the line, pans, boxes, or slices.</li>
+              <li>If pizza is planned, log it in 1st Phorm before eating.</li>
+              <li>Keep it to a measured portion and pair it with lean protein.</li>
+              <li>No emotional slices after stressful shifts.</li>
+            </ul>
+          </article>
+          <article class="plan-card">
+            <p class="label">Avoid</p>
+            <h2>Cut Killers</h2>
+            <ul>
+              <li>Soda, sweet tea, energy drinks with sugar, juice</li>
+              <li>Untracked pizza, breadsticks, wings, desserts</li>
+              <li>Liquid calories and random sauces</li>
+              <li>Late-night drive-thru meals</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="plan-card">
+          <div class="section-title">
+            <h2>Grocery List</h2>
+            <span>Keep it boring and repeatable</span>
+          </div>
+          <div class="grocery-grid">
+            <ul>
+              <li>Chicken breast</li>
+              <li>Lean ground beef or turkey</li>
+              <li>Egg whites and whole eggs</li>
+              <li>Greek yogurt</li>
+              <li>Protein powder</li>
+            </ul>
+            <ul>
+              <li>Rice, potatoes, oats</li>
+              <li>Low-carb wraps</li>
+              <li>Vegetables and salad kits</li>
+              <li>Berries and bananas</li>
+              <li>Olive oil spray, salsa, zero-cal sauces</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="supplements" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Daily tracking</p>
+          <h2>Supplements</h2>
+        </div>
+        <div class="plan-card">
+          <div class="section-title">
+            <h2>Daily Supplements</h2>
+            <span>Tracking only</span>
+          </div>
+          <p class="support-copy">For adherence tracking only. This app does not provide medical advice, dosing recommendations, or treatment guidance. Follow your licensed clinician's instructions and your own personally set supplement plan.</p>
+          <div id="supplement-list" class="habit-list"></div>
+          <div class="inline-form">
+            <input id="custom-supplement" type="text" placeholder="Add custom supplement" />
+            <button id="add-supplement" class="text-button" type="button">Add</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="progress" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Body changes</p>
+          <h2>Progress</h2>
+        </div>
+        <div class="weekly-card">
+          <div class="section-title">
+            <h2>Sunday Progress Pictures</h2>
+            <span id="progress-week-label">This week</span>
+          </div>
+          <p class="support-copy privacy-note">Progress photos and measurements are stored locally in this browser on this device unless you export/share a backup. Delete or replace any photo anytime.</p>
+          <div id="picture-inputs" class="picture-grid"></div>
+          <p id="progress-status" class="support-copy">Progress changes auto-save locally after upload or field change.</p>
+        </div>
+
+        <div class="weekly-card">
+          <div class="section-title">
+            <h2>Body Measurements</h2>
+            <span>Weekly</span>
+          </div>
+          <div id="measurement-inputs" class="input-grid"></div>
+          <div id="measurement-history" class="history-list"></div>
+        </div>
+      </section>
+
+      <section id="weekly" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Review</p>
+          <h2>Weekly</h2>
+        </div>
+        <div class="weekly-card">
+          <div class="section-title">
+            <h2>Sunday Review</h2>
+            <span id="week-range">This week</span>
+          </div>
+          <div class="review-grid">
+            <div>
+              <span>7-day average weight</span>
+              <strong id="review-weight">--</strong>
+            </div>
+            <div>
+              <span>Average daily score</span>
+              <strong id="review-score">0.0</strong>
+            </div>
+            <div>
+              <span>Total cardio sessions</span>
+              <strong id="review-cardio">0</strong>
+            </div>
+            <div>
+              <span>Average steps</span>
+              <strong id="review-steps">0</strong>
+            </div>
+            <div>
+              <span>No-grazing days</span>
+              <strong id="review-grazing">0</strong>
+            </div>
+            <div>
+              <span>Week status</span>
+              <strong id="review-status">Build data</strong>
+            </div>
+            <div>
+              <span>Best weight-loss week</span>
+              <strong id="review-best-loss">--</strong>
+            </div>
+            <div>
+              <span>Best compliance week</span>
+              <strong id="review-best-compliance">--</strong>
+            </div>
+            <div>
+              <span>Best step week</span>
+              <strong id="review-best-steps">--</strong>
+            </div>
+            <div>
+              <span>Current streak</span>
+              <strong id="review-current-streak">0 days</strong>
+            </div>
+            <div>
+              <span>Best no-grazing streak</span>
+              <strong id="review-best-clean-streak">0 days</strong>
+            </div>
+            <div>
+              <span>Weekly violations</span>
+              <strong id="review-violations">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="history-card">
+          <div class="section-title">
+            <h2>Recent Check-Ins</h2>
+            <button id="clear-today" class="text-button" type="button">Clear today</button>
+          </div>
+          <div id="history-list" class="history-list"></div>
+        </div>
+      </section>
+
+      <section id="settings" class="tab-panel">
+        <div class="page-heading">
+          <p class="label">Configuration</p>
+          <h2>Settings</h2>
+        </div>
+        <div class="weekly-card">
+          <div class="section-title">
+            <h2>Settings</h2>
+            <span id="settings-save-label">Local only</span>
+          </div>
+          <div class="input-grid">
+            <label class="field-card">
+              <span>Starting weight (lb)</span>
+              <input id="setting-start-weight" type="number" step="0.1" min="1" inputmode="decimal" />
+            </label>
+            <label class="field-card">
+              <span>Goal weight (lb)</span>
+              <input id="setting-goal-weight" type="number" step="0.1" min="1" inputmode="decimal" />
+            </label>
+            <label class="field-card">
+              <span>Goal date</span>
+              <input id="setting-goal-date" type="date" />
+            </label>
+            <label class="field-card">
+              <span>Protein target (g/day)</span>
+              <input id="setting-protein-target" type="text" />
+            </label>
+            <label class="field-card">
+              <span>Step target (steps/day)</span>
+              <input id="setting-step-target" type="number" min="1" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Cardio target (min/day)</span>
+              <input id="setting-cardio-target" type="number" min="1" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Training calories (kcal/day)</span>
+              <input id="setting-training-calories" type="text" />
+            </label>
+            <label class="field-card">
+              <span>Rest calories (kcal/day)</span>
+              <input id="setting-rest-calories" type="text" />
+            </label>
+          </div>
+        </div>
+
+        <div class="weekly-card">
+          <div class="section-title">
+            <h2>Data Backup</h2>
+            <span>JSON</span>
+          </div>
+          <div class="data-actions">
+            <button id="export-data" class="complete-button" type="button">Export JSON</button>
+            <label class="import-button">
+              Import JSON
+              <input id="import-data" type="file" accept="application/json,.json" />
+            </label>
+            <button id="clear-all-data" class="danger-button" type="button">Clear All Data</button>
+          </div>
+          <p id="data-status" class="support-copy">Data is stored in this browser on this device. Clearing browser/site data may delete your tracker data. Export JSON before deleting or switching devices.</p>
+        </div>
+
+        <details class="weekly-card developer-notes">
+          <summary>Developer Notes: Apple Health Sync Planned</summary>
+          <div class="future-plan">
+            <strong>Future native iOS plan</strong>
+            <ul>
+              <li>HealthKit entitlement</li>
+              <li>Permission request screen</li>
+              <li>Read steps</li>
+              <li>Read workouts</li>
+              <li>Read active energy</li>
+              <li>Read body weight</li>
+              <li>Read heart rate</li>
+              <li>Sync values into daily check-in</li>
+              <li>Keep manual override always available</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <script src="./app.js?v=20260615-production-readiness"></script>
+  </body>
+</html>
