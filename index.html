@@ -3,48 +3,96 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ryan Cut Tracker</title>
-    <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260615-production-readiness" />
+    <title>FORGED</title>
+    <link rel="icon" href="./forged-icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./forged-icon.svg" />
+    <link rel="stylesheet" href="./styles.css?v=20260615-auth-beta" />
   </head>
   <body>
-    <div id="privacy-gate" class="privacy-gate" role="dialog" aria-modal="true" aria-label="Private tracker lock">
-      <div class="privacy-card">
-        <p class="eyebrow">Private local tracker · saved on this device</p>
-        <h1>Ryan Cut Tracker</h1>
-        <p class="support-copy">This page can contain body weight, progress photos, supplements, and health habits. It is intended for Ryan only.</p>
-        <label class="field-card">
-          <span>Unlock code</span>
-          <input id="privacy-code" type="password" autocomplete="off" placeholder="Type RYAN to unlock" />
-        </label>
-        <button id="privacy-unlock" class="complete-button" type="button">Unlock Private Tracker</button>
-        <p class="support-copy">Casual browser gate only. For a public URL, still use Cloudflare Access, Basic Auth, or another real server-side password.</p>
+    <div id="auth-gate" class="privacy-gate auth-gate" role="dialog" aria-modal="true" aria-label="FORGED account login">
+      <div class="privacy-card auth-card">
+        <p class="eyebrow">FORGED beta · saved locally on this device</p>
+        <h1>Start your FORGED account</h1>
+        <p class="support-copy">Create a profile so FORGED can save your name, email, starting point, goal, and daily logs on this device.</p>
+
+        <div class="auth-tabs" role="tablist" aria-label="Account actions">
+          <button id="show-signup" class="auth-tab is-active" type="button">Sign up</button>
+          <button id="show-login" class="auth-tab" type="button">Log in</button>
+        </div>
+
+        <form id="signup-form" class="auth-form stack">
+          <label class="field-card">
+            <span>Name</span>
+            <input id="signup-name" type="text" autocomplete="name" placeholder="Your name" required />
+          </label>
+          <label class="field-card">
+            <span>Email</span>
+            <input id="signup-email" type="email" autocomplete="email" placeholder="you@example.com" required />
+          </label>
+          <label class="field-card">
+            <span>Password</span>
+            <input id="signup-password" type="password" autocomplete="new-password" placeholder="Create password" minlength="6" required />
+          </label>
+          <div class="input-grid compact-grid">
+            <label class="field-card">
+              <span>Starting weight</span>
+              <input id="signup-start-weight" type="number" step="0.1" min="75" max="500" placeholder="265" inputmode="decimal" />
+            </label>
+            <label class="field-card">
+              <span>Goal weight</span>
+              <input id="signup-goal-weight" type="number" step="0.1" min="75" max="500" placeholder="220" inputmode="decimal" />
+            </label>
+          </div>
+          <label class="field-card">
+            <span>Goal date</span>
+            <input id="signup-goal-date" type="date" />
+          </label>
+          <button class="complete-button" type="submit">Create account</button>
+        </form>
+
+        <form id="login-form" class="auth-form stack" hidden>
+          <label class="field-card">
+            <span>Email</span>
+            <input id="login-email" type="email" autocomplete="email" placeholder="you@example.com" />
+          </label>
+          <label class="field-card">
+            <span>Password</span>
+            <input id="login-password" type="password" autocomplete="current-password" placeholder="Password" />
+          </label>
+          <button class="complete-button" type="submit">Log in</button>
+        </form>
+
+        <p id="auth-status" class="support-copy">Beta note: this saves in this browser only. Use real server auth before a public multi-device launch.</p>
       </div>
     </div>
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Private local tracker</p>
-          <h1>Ryan Cut Tracker</h1>
+          <p class="eyebrow">Forged Daily. Built for Life.</p>
+          <h1 class="brand-wordmark">FORGED</h1>
+        </div>
+        <div class="topbar-status">
+          <span id="topbar-date-label">Today</span>
+          <strong id="topbar-score-label">0/10</strong>
+          <button id="open-admin" class="admin-link" type="button">Admin Dashboard</button>
         </div>
       </header>
 
       <nav class="tabs" aria-label="App sections">
-        <button class="tab is-active" type="button" data-tab="checkin">Check-In</button>
-        <button class="tab" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab is-active" type="button" data-tab="dashboard">Dashboard</button>
+        <button class="tab" type="button" data-tab="checkin">Activity</button>
+        <button class="tab" type="button" data-tab="nutrition">Nutrition</button>
         <button class="tab" type="button" data-tab="workout">Workout</button>
-        <button class="tab" type="button" data-tab="diet">Diet</button>
-        <button class="tab" type="button" data-tab="supplements">Supps</button>
         <button class="tab" type="button" data-tab="progress">Progress</button>
-        <button class="tab" type="button" data-tab="weekly">Weekly</button>
-        <button class="tab" type="button" data-tab="settings">Settings</button>
+        <button class="tab" type="button" data-tab="coach">Coach</button>
       </nav>
 
-      <section id="checkin" class="tab-panel is-active">
+      <section id="checkin" class="tab-panel">
         <form id="checkin-form" class="stack">
           <div class="page-heading">
-            <p class="label">Today</p>
-            <h2>Today's Check-In</h2>
+            <p class="label">Daily logging</p>
+            <h2>Activity</h2>
           </div>
 
           <section class="daily-action-block" aria-label="Daily action summary">
@@ -157,6 +205,8 @@
             </div>
           </div>
 
+          <div id="activity-body-updates" class="activity-body-updates"></div>
+
           <div class="mission-card">
             <div class="section-title">
               <h2>Today Summary</h2>
@@ -180,12 +230,12 @@
 
           <div class="check-card">
             <div class="section-title">
-              <h2>Temptation Log</h2>
-              <span id="temptation-summary">Clean day</span>
+              <h2>Clean Day</h2>
+              <span id="temptation-summary">Clean day not confirmed</span>
             </div>
-            <button id="confirm-clean-day" class="clean-day-button" type="button">Confirm Clean Day</button>
-            <p class="support-copy">No-violation points count after you confirm a clean day. Logging a violation turns this off.</p>
+            <p class="support-copy">Confirm this only after the day is actually clean. These points stay pending until you confirm no grazing / no sugary drink.</p>
             <div id="temptation-list" class="chip-list"></div>
+            <button id="confirm-clean-day" class="complete-button" type="button">Confirm Clean Day</button>
           </div>
 
           <div class="check-card">
@@ -214,11 +264,107 @@
         </form>
       </section>
 
-      <section id="dashboard" class="tab-panel">
-        <div class="page-heading">
-          <p class="label">Overview</p>
-          <h2>Dashboard</h2>
-        </div>
+      <section id="dashboard" class="tab-panel is-active">
+        <div id="week-selector" class="week-selector dashboard-week-strip" aria-label="Select dashboard day"></div>
+        <section class="dashboard-section dashboard-section-nutrition">
+          <div class="section-title dashboard-section-title">
+            <div>
+              <p class="label">Nutrition</p>
+              <h2>Your nutrition</h2>
+            </div>
+            <button class="text-button" type="button" data-open-tab="nutrition">Open Nutrition</button>
+          </div>
+          <div class="dashboard-grid">
+            <article class="fitness-card nutrition-card">
+              <button class="card-open" type="button" data-open-tab="nutrition" aria-label="Open Nutrition">›</button>
+              <h3>Nutrition</h3>
+              <div class="dashboard-card-body split-ring-card">
+                <div id="dash-calorie-ring" class="ring dashboard-ring double-ring" style="--pct:0; --pct2:0"><span id="dash-nutrition-percent">0%</span></div>
+                <div class="ring-legend">
+                  <span><i></i> Calories</span>
+                  <span><i></i> Protein</span>
+                </div>
+              </div>
+              <div class="dashboard-card-footer">
+                <span><b id="dash-calories-remaining">0</b> Cals Left</span>
+                <strong id="dash-calories-badge">0</strong>
+                <span class="visually-hidden"><b id="dash-calories-current">0</b> / <b id="dash-calories-goal">0</b> <b id="dash-protein-current">0g</b> / <b id="dash-protein-goal">0g</b></span>
+              </div>
+            </article>
+            <article class="fitness-card">
+              <button class="card-open" type="button" data-open-tab="nutrition" aria-label="Open Water">›</button>
+              <h3>Water</h3>
+              <div class="dashboard-card-body split-ring-card">
+                <div id="dash-water-ring" class="ring dashboard-ring" style="--pct:0"><span>0%</span></div>
+                <div class="side-total"><strong id="dash-water-current">0</strong><span id="dash-water-goal">/128 oz</span></div>
+              </div>
+              <div class="dashboard-card-footer">
+                <span id="dash-water-remaining">128oz Left</span>
+                <strong id="dash-water-badge">0</strong>
+              </div>
+            </article>
+            <article class="fitness-card">
+              <button class="card-open" type="button" data-open-tab="supplements" aria-label="Open Supplements">›</button>
+              <h3>Supplements</h3>
+              <div class="dashboard-card-body split-ring-card">
+                <div id="dash-supplement-ring" class="ring dashboard-ring ring-blue" style="--pct:0"><span>0%</span></div>
+                <div class="side-total"><strong id="dash-supplements-current">0</strong><span id="dash-supplements-goal">/0 today</span></div>
+              </div>
+              <div class="dashboard-card-footer success-foot">
+                <span id="dash-supplements-status">Taken 0 / 0 today</span>
+                <strong id="dash-supplement-streak">0d</strong>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="dashboard-section dashboard-section-activity">
+          <div class="section-title dashboard-section-title">
+            <div>
+              <p class="label">Activity</p>
+              <h2>Your activity</h2>
+            </div>
+            <button class="text-button" type="button" data-open-tab="checkin">Open Activity</button>
+          </div>
+          <div class="dashboard-grid">
+            <article class="fitness-card">
+              <button class="card-open" type="button" data-open-tab="checkin" aria-label="Open Steps">›</button>
+              <h3>Steps</h3>
+              <div class="dashboard-card-body split-ring-card">
+                <div id="dash-steps-ring" class="ring dashboard-ring xl-ring ring-blue" style="--pct:0"><span>0%</span></div>
+                <div class="side-total"><strong id="dash-steps-current">0</strong><span id="dash-steps-goal">/10,000</span></div>
+              </div>
+              <div class="dashboard-card-footer success-foot">
+                <span id="dash-steps-remaining">10,000 remaining</span>
+                <strong id="dash-steps-badge">0</strong>
+              </div>
+            </article>
+            <article class="fitness-card workout-tile">
+              <button class="card-open" type="button" data-open-tab="workout" aria-label="Open Workout">›</button>
+              <h3>Workout</h3>
+              <div class="workout-dashboard-stack">
+                <p id="dash-workout-day" class="label">MONDAY</p>
+                <h2 id="dash-workout-name">Workout</h2>
+                <span id="dash-workout-percent">0%</span>
+              </div>
+              <div class="progress-track"><div id="dash-workout-progress" class="progress-fill"></div></div>
+              <div class="dashboard-card-footer">
+                <span id="dash-workout-status">Not Started</span>
+                <strong id="dash-workout-badge">0</strong>
+              </div>
+            </article>
+            <article class="fitness-card">
+              <button class="card-open" type="button" data-open-tab="checkin" aria-label="Open Cardio">›</button>
+              <div class="section-title"><div><p class="label">Cardio</p><h2>Minutes</h2></div><div id="dash-cardio-ring" class="ring mini-ring ring-amber" style="--pct:0"><span>0%</span></div></div>
+              <div class="metric-line"><strong id="dash-cardio-current">0 min</strong><span id="dash-cardio-goal">Goal 30 min</span></div>
+            </article>
+            <article class="fitness-card achievements-card">
+              <button class="card-open" type="button" data-open-tab="progress" aria-label="Open Achievements">›</button>
+              <div class="section-title"><div><p class="label">FORGED Achievements</p><h2>Badges</h2></div><strong id="dash-badge-count" class="pill-stat">0/6</strong></div>
+              <div id="dash-achievements" class="badge-grid"></div>
+            </article>
+          </div>
+        </section>
         <div id="dashboard-empty-state" class="empty-state"></div>
         <div class="score-summary">
           <article>
@@ -346,6 +492,126 @@
         </div>
       </section>
 
+      <section id="nutrition" class="tab-panel activity-addon-panel">
+        <div class="page-heading nutrition-heading">
+          <div>
+            <p class="label">Meal-based tracking</p>
+            <h2>Nutrition Log</h2>
+          </div>
+          <button id="copy-yesterday" class="text-button" type="button">Copy Yesterday</button>
+        </div>
+
+        <section class="nutrition-manual-card">
+          <div class="section-title">
+            <div>
+              <p class="label">Daily totals</p>
+              <h2>Nutrition Check-In</h2>
+            </div>
+            <span>Auto-saves</span>
+          </div>
+          <div class="input-grid nutrition-input-grid">
+            <label class="field-card">
+              <span>Calories eaten (kcal)</span>
+              <input id="calories-eaten" type="number" min="0" max="6000" placeholder="e.g. 2650" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Protein (g)</span>
+              <input id="protein-grams" type="number" min="0" max="500" placeholder="e.g. 255" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Water (oz)</span>
+              <input id="water-ounces" type="number" min="0" max="300" placeholder="e.g. 128" inputmode="numeric" />
+            </label>
+          </div>
+        </section>
+
+        <article class="nutrition-summary-card">
+          <div class="macro-grid">
+            <div class="macro-row">
+              <div><span>Calories</span><strong><b id="nutrition-calories-current">0</b> / <b id="nutrition-calories-goal">0</b></strong><em id="nutrition-calories-remaining">0 remaining</em></div>
+              <div class="macro-bar"><span id="nutrition-calories-bar"></span></div>
+            </div>
+            <div class="macro-row">
+              <div><span>Protein</span><strong><b id="nutrition-protein-current">0g</b> / <b id="nutrition-protein-goal">0g</b></strong><em id="nutrition-protein-remaining">0g remaining</em></div>
+              <div class="macro-bar"><span id="nutrition-protein-bar"></span></div>
+            </div>
+            <div class="macro-row">
+              <div><span>Carbs</span><strong><b id="nutrition-carbs-current">0g</b> / <b id="nutrition-carbs-goal">0g</b></strong><em id="nutrition-carbs-remaining">0g remaining</em></div>
+              <div class="macro-bar"><span id="nutrition-carbs-bar"></span></div>
+            </div>
+            <div class="macro-row">
+              <div><span>Fat</span><strong><b id="nutrition-fat-current">0g</b> / <b id="nutrition-fat-goal">0g</b></strong><em id="nutrition-fat-remaining">0g remaining</em></div>
+              <div class="macro-bar"><span id="nutrition-fat-bar"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <div class="nutrition-mini-grid">
+          <article class="fitness-card">
+            <div class="section-title"><div><p class="label">Fiber</p><h2 id="nutrition-fiber-current">0g</h2></div><strong id="nutrition-fiber-goal" class="pill-stat">30g</strong></div>
+            <div class="macro-bar"><span id="nutrition-fiber-bar"></span></div>
+            <p id="nutrition-fiber-remaining" class="card-foot">30g remaining</p>
+          </article>
+          <article class="fitness-card">
+            <div class="section-title"><div><p class="label">Water</p><h2 id="nutrition-water-current">0 oz</h2></div><strong id="nutrition-water-goal" class="pill-stat">128 oz</strong></div>
+            <div class="macro-bar"><span id="nutrition-water-bar"></span></div>
+            <p id="nutrition-water-remaining" class="card-foot">128 oz remaining</p>
+            <div class="water-actions">
+              <button type="button" data-water-add="8">+8 oz</button>
+              <button type="button" data-water-add="16">+16 oz</button>
+              <button type="button" data-water-add="24">+24 oz</button>
+            </div>
+          </article>
+        </div>
+
+        <section class="favorite-foods-card">
+          <div class="section-title">
+            <div>
+              <p class="label">Quick Add</p>
+              <h2>Favorite Foods</h2>
+            </div>
+            <button id="save-favorite-food" class="text-button" type="button">Save Last Food</button>
+          </div>
+          <div id="favorite-foods" class="favorite-foods"></div>
+        </section>
+
+        <div id="meal-list" class="meal-tracker-list"></div>
+
+        <section class="builder-card">
+          <div class="section-title">
+            <div>
+              <p class="label">Meal plan builder</p>
+              <h2>Your Meals</h2>
+            </div>
+            <span id="meal-plan-total">0 cal · 0g protein</span>
+          </div>
+          <div id="daily-meal-plan-view" class="meal-plan-builder-list"></div>
+          <form id="meal-builder-form" class="builder-form">
+            <input id="meal-builder-id" type="hidden" />
+            <label><span>Meal time</span><select id="meal-builder-time"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select></label>
+            <label><span>Assign to day</span><select id="meal-builder-day"><option>Daily</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label>
+            <label><span>Meal name</span><input id="meal-builder-name" placeholder="Eggs + Greek yogurt" /></label>
+            <label><span>Calories</span><input id="meal-builder-calories" type="number" min="0" inputmode="numeric" /></label>
+            <label><span>Protein (g)</span><input id="meal-builder-protein" type="number" min="0" inputmode="numeric" /></label>
+            <label><span>Carbs (g)</span><input id="meal-builder-carbs" type="number" min="0" inputmode="numeric" /></label>
+            <label><span>Fat (g)</span><input id="meal-builder-fat" type="number" min="0" inputmode="numeric" /></label>
+            <label class="span-2"><span>Notes</span><input id="meal-builder-notes" placeholder="Prep notes, timing, swaps" /></label>
+            <button class="complete-button" type="submit">Save Meal</button>
+            <button id="meal-builder-reset" class="text-button" type="button">New Meal</button>
+          </form>
+        </section>
+
+        <section class="future-food-card">
+          <p class="label">Food Database Ready</p>
+          <div class="future-food-grid">
+            <span>USDA database</span>
+            <span>Barcode scanner</span>
+            <span>AI food recognition</span>
+            <span>Restaurant nutrition lookup</span>
+          </div>
+        </section>
+      </section>
+
       <section id="workout" class="tab-panel">
         <div class="page-heading">
           <p class="label">Training</p>
@@ -359,6 +625,29 @@
           <span id="workout-day-label">Today</span>
         </div>
         <button id="full-week-toggle" class="text-button full-week-toggle" type="button">View full week</button>
+        <section class="builder-card">
+          <div class="section-title">
+            <div>
+              <p class="label">Workout builder</p>
+              <h2>Your Workout Templates</h2>
+            </div>
+            <span>Starter plan stays available</span>
+          </div>
+          <div id="workout-builder-list" class="builder-list"></div>
+          <form id="workout-builder-form" class="builder-form">
+            <input id="workout-builder-id" type="hidden" />
+            <label><span>Workout name</span><input id="workout-builder-name" placeholder="Chest & Triceps" /></label>
+            <label><span>Assign weekday</span><select id="workout-builder-day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label>
+            <label><span>Muscle group</span><input id="workout-builder-muscle" placeholder="Chest, triceps" /></label>
+            <label><span>Cardio add-on</span><input id="workout-builder-cardio" placeholder="30 min incline walk" /></label>
+            <label><span>Rest time</span><input id="workout-builder-rest" placeholder="90 sec" /></label>
+            <label class="checkbox-card"><input id="workout-builder-restday" type="checkbox" /> <span>Rest day option</span></label>
+            <label class="span-2"><span>Exercises</span><textarea id="workout-builder-exercises" rows="6" placeholder="Bench Press | 4 | 8 | 185 | 90 sec | controlled reps&#10;Incline DB Press | 3 | 10 | 70 | 90 sec |"></textarea></label>
+            <label class="span-2"><span>Notes</span><input id="workout-builder-notes" placeholder="Training notes" /></label>
+            <button class="complete-button" type="submit">Save Workout</button>
+            <button id="workout-builder-reset" class="text-button" type="button">New Workout</button>
+          </form>
+        </section>
         <div id="workout-list" class="plan-list">
           <article class="workout-card">
             <p class="workout-instructions">Loading the selected date's exercises, sets, reps, cardio, and notes...</p>
@@ -373,7 +662,32 @@
         </div>
       </section>
 
-      <section id="diet" class="tab-panel">
+      <section id="coach" class="tab-panel coach-shell">
+        <div class="page-heading">
+          <p class="label">AI-ready guidance</p>
+          <h2>FORGED Coach</h2>
+        </div>
+        <article class="coach-brief-card">
+          <div class="section-title">
+            <div>
+              <p class="label">Weekly Insight</p>
+              <h2>FORGED Coach</h2>
+            </div>
+            <strong id="coach-projection" class="pill-stat">--</strong>
+          </div>
+          <div id="coach-insights" class="coach-insights"></div>
+          <div class="coach-actions">
+            <button type="button" data-open-tab="checkin">Log today</button>
+            <button type="button" data-open-tab="progress">View progress</button>
+            <button type="button" data-open-tab="weekly">Weekly review</button>
+            <button type="button" data-open-tab="supplements">Supplements</button>
+            <button type="button" data-open-tab="settings">Settings</button>
+          </div>
+          <p class="support-copy">Generated from local tracker data for now. Coaching stays in baseline mode until enough real entries exist.</p>
+        </article>
+      </section>
+
+      <section id="diet" class="tab-panel coach-panel">
         <div class="page-heading">
           <p class="label">Nutrition</p>
           <h2>Diet</h2>
@@ -429,40 +743,6 @@
           <div id="meal-plan" class="meal-plan"></div>
         </div>
 
-        <div class="diet-grid">
-          <article class="plan-card">
-            <p class="label">Pizza World Approved</p>
-            <h2>Work Meals</h2>
-            <ul>
-              <li>Grilled chicken salad, dressing measured on the side</li>
-              <li>Chicken breast or lean protein with vegetables</li>
-              <li>Turkey, chicken, or lean beef bowl without extra cheese</li>
-              <li>Protein shake when the shift gets chaotic</li>
-              <li>Zero-calorie drink or water only</li>
-            </ul>
-          </article>
-          <article class="plan-card">
-            <p class="label">Pizza Rules</p>
-            <h2>Controlled Exposure</h2>
-            <ul>
-              <li>No grazing from the line, pans, boxes, or slices.</li>
-              <li>If pizza is planned, log it in 1st Phorm before eating.</li>
-              <li>Keep it to a measured portion and pair it with lean protein.</li>
-              <li>No emotional slices after stressful shifts.</li>
-            </ul>
-          </article>
-          <article class="plan-card">
-            <p class="label">Avoid</p>
-            <h2>Cut Killers</h2>
-            <ul>
-              <li>Soda, sweet tea, energy drinks with sugar, juice</li>
-              <li>Untracked pizza, breadsticks, wings, desserts</li>
-              <li>Liquid calories and random sauces</li>
-              <li>Late-night drive-thru meals</li>
-            </ul>
-          </article>
-        </div>
-
         <div class="plan-card">
           <div class="section-title">
             <h2>Grocery List</h2>
@@ -487,7 +767,7 @@
         </div>
       </section>
 
-      <section id="supplements" class="tab-panel">
+      <section id="supplements" class="tab-panel coach-panel">
         <div class="page-heading">
           <p class="label">Daily tracking</p>
           <h2>Supplements</h2>
@@ -499,17 +779,81 @@
           </div>
           <p class="support-copy">For adherence tracking only. This app does not provide medical advice, dosing recommendations, or treatment guidance. Follow your licensed clinician's instructions and your own personally set supplement plan.</p>
           <div id="supplement-list" class="habit-list"></div>
-          <div class="inline-form">
-            <input id="custom-supplement" type="text" placeholder="Add custom supplement" />
-            <button id="add-supplement" class="text-button" type="button">Add</button>
-          </div>
+          <form id="supplement-builder-form" class="builder-form supplement-form">
+            <div class="form-heading span-2"><strong id="supplement-form-title">Add Supplement</strong><span>Use Edit above to modify an existing item.</span></div>
+            <input id="supplement-builder-id" type="hidden" />
+            <label><span>Name</span><input id="supplement-name" placeholder="Creatine" /></label>
+            <label><span>Dosage</span><input id="supplement-dosage" placeholder="5" inputmode="decimal" /></label>
+            <label><span>Unit</span><select id="supplement-unit"><option>g</option><option>mg</option><option>capsule</option><option>scoop</option><option>tablet</option><option>serving</option><option>oz</option><option>ml</option></select></label>
+            <label><span>Time of day</span><select id="supplement-time"><option>morning</option><option>afternoon</option><option>evening</option><option>bedtime</option><option>pre-workout</option><option>post-workout</option></select></label>
+            <label><span>Instructions</span><select id="supplement-instructions"><option>with food</option><option>empty stomach</option><option>before workout</option><option>after workout</option><option>with breakfast</option></select></label>
+            <label class="span-2"><span>Notes</span><input id="supplement-notes" placeholder="Optional notes" /></label>
+            <button class="complete-button" type="submit">Save Supplement</button>
+            <button id="supplement-builder-reset" class="text-button" type="button">New Supplement</button>
+          </form>
         </div>
       </section>
 
       <section id="progress" class="tab-panel">
         <div class="page-heading">
-          <p class="label">Body changes</p>
+          <p class="label">Trends</p>
           <h2>Progress</h2>
+        </div>
+        <div class="range-tabs" aria-label="Progress range">
+          <button class="is-active" type="button" data-progress-range="7">Weekly</button>
+          <button type="button" data-progress-range="30">Monthly</button>
+          <button type="button" data-progress-range="90">90 Day</button>
+        </div>
+        <div class="chart-grid progress-charts">
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Weight</h2>
+              <span id="progress-weight-range">7 days</span>
+            </div>
+            <div id="progress-chart-weight" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Calories</h2>
+              <span id="progress-calories-range">7 days</span>
+            </div>
+            <div id="progress-chart-calories" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Protein</h2>
+              <span id="progress-protein-range">7 days</span>
+            </div>
+            <div id="progress-chart-protein" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Steps</h2>
+              <span id="progress-steps-range">7 days</span>
+            </div>
+            <div id="progress-chart-steps" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Water</h2>
+              <span id="progress-water-range">7 days</span>
+            </div>
+            <div id="progress-chart-water" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Cardio</h2>
+              <span id="progress-cardio-range">7 days</span>
+            </div>
+            <div id="progress-chart-cardio" class="chart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="section-title">
+              <h2>Workout Compliance</h2>
+              <span id="progress-workouts-range">7 days</span>
+            </div>
+            <div id="progress-chart-workouts" class="chart"></div>
+          </article>
         </div>
         <div class="weekly-card">
           <div class="section-title">
@@ -531,14 +875,14 @@
         </div>
       </section>
 
-      <section id="weekly" class="tab-panel">
+      <section id="weekly" class="tab-panel coach-panel">
         <div class="page-heading">
           <p class="label">Review</p>
           <h2>Weekly</h2>
         </div>
         <div class="weekly-card">
           <div class="section-title">
-            <h2>Sunday Review</h2>
+            <h2>Weekly Review</h2>
             <span id="week-range">This week</span>
           </div>
           <div class="review-grid">
@@ -602,7 +946,7 @@
         </div>
       </section>
 
-      <section id="settings" class="tab-panel">
+      <section id="settings" class="tab-panel coach-panel">
         <div class="page-heading">
           <p class="label">Configuration</p>
           <h2>Settings</h2>
@@ -613,6 +957,18 @@
             <span id="settings-save-label">Local only</span>
           </div>
           <div class="input-grid">
+            <label class="field-card">
+              <span>Name</span>
+              <input id="setting-user-name" type="text" placeholder="Your name" />
+            </label>
+            <label class="field-card">
+              <span>Goal type</span>
+              <select id="setting-goal-type"><option value="lose fat">Lose fat</option><option value="build muscle">Build muscle</option><option value="maintain">Maintain</option><option value="recomposition">Recomposition</option></select>
+            </label>
+            <label class="field-card">
+              <span>Current weight (lb)</span>
+              <input id="setting-current-weight" type="number" step="0.1" min="1" inputmode="decimal" />
+            </label>
             <label class="field-card">
               <span>Starting weight (lb)</span>
               <input id="setting-start-weight" type="number" step="0.1" min="1" inputmode="decimal" />
@@ -638,6 +994,22 @@
               <input id="setting-cardio-target" type="number" min="1" inputmode="numeric" />
             </label>
             <label class="field-card">
+              <span>Water goal (oz/day)</span>
+              <input id="setting-water-target" type="number" min="1" inputmode="numeric" />
+            </label>
+            <label class="field-card">
+              <span>Workout days</span>
+              <input id="setting-workout-days" type="text" placeholder="Monday, Tuesday, Thursday" />
+            </label>
+            <label class="field-card">
+              <span>Preferred units</span>
+              <select id="setting-units"><option value="imperial">Imperial</option><option value="metric">Metric</option></select>
+            </label>
+            <label class="field-card">
+              <span>Theme preference</span>
+              <select id="setting-theme"><option value="dark">Dark performance</option><option value="midnight">Midnight blue</option><option value="steel">Steel contrast</option></select>
+            </label>
+            <label class="field-card">
               <span>Training calories (kcal/day)</span>
               <input id="setting-training-calories" type="text" />
             </label>
@@ -647,6 +1019,17 @@
             </label>
           </div>
         </div>
+
+        <details class="weekly-card developer-notes">
+          <summary>Technical platform data model</summary>
+          <div class="section-title">
+            <h2>Platform Data Model</h2>
+            <span>User scoped</span>
+          </div>
+          <div class="future-food-grid">
+            <span>users</span><span>user_profiles</span><span>daily_checkins</span><span>workouts</span><span>workout_templates</span><span>meal_plans</span><span>meals</span><span>supplements</span><span>supplement_logs</span><span>goals</span><span>achievements</span>
+          </div>
+        </details>
 
         <div class="weekly-card">
           <div class="section-title">
@@ -682,8 +1065,16 @@
           </div>
         </details>
       </section>
+
+      <section id="admin" class="tab-panel admin-panel">
+        <div class="page-heading">
+          <p class="label">App owner</p>
+          <h2>Admin</h2>
+        </div>
+        <div id="admin-metrics" class="admin-grid"></div>
+      </section>
     </main>
 
-    <script src="./app.js?v=20260615-production-readiness"></script>
+    <script src="./app.js?v=20260615-auth-beta"></script>
   </body>
 </html>
